@@ -24,6 +24,7 @@ boot.BootYield()
 
 for i,obj in ipairs( REIHE ) do 
 	os.loadAPI( fs.combine( "/marcelOS/apis", obj ) )
+	sleep(0.2)
 	end
 
 boot.BootYield()	
