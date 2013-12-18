@@ -1,0 +1,36 @@
+[0]INITIAL BOOT API
+[0]MGRUB 0.98.4 - BOOT LOADER
+[0]Loading settings to Boot
+[0]standart OS: marcelOS.mgrub
+[0]timeout : 2
+[2.05]booting into marcelOS
+[2.05]visit http://marcelmaertens.funpic.de for information
+[2.1]starting path
+[2.1]starting vec3
+[2.1]starting mStrings
+[2.1]starting events
+[2.1]starting Peripherals
+[2.1]starting drivers
+[2.1]starting ip
+[2.15]starting lps
+[2.15]starting winobj
+[2.15]starting windows
+[2.15]starting mTaskModify
+[2.15]starting mTask
+[2.15]starting programs
+[2.15]starting mgps
+[2.15]starting sha1
+[2.15]Initial all APIS
+[2.15]Driver 'driver_01windowconverter' v.:0.1
+[2.15]Driver 'driver_IP' v.:0.1
+[2.15]Driver 'driver_mView' v.:0.1
+[2.15]Driver 'driver_peripheral' v.:0.1
+[2.15]Driver 'driver_peripheralcable' v.:0.1
+[2.15]Driver 'driver_turtle' v.:0.1
+[2.15]Driver 'driver_windows' v.:0.1
+[32.55]sudo-prg  /marcelOS/autorun/DHCPregister
+[32.55]sudo-arg  autostart
+[32.6]sudo-prg  /marcelOS/autorun/explorer
+[32.6]sudo-arg  autostart
+[32.75]sudo-prg  /marcelOS/autorun/taskmanager
+[32.75]sudo-arg  autostart

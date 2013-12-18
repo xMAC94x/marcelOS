@@ -1,0 +1,7 @@
+name pearOS
+owner oeed
+lastboot 13.193
+bootcount 9
+bootfile pearOS
+version 0.2
+checkInstall /System/PearOS.lua

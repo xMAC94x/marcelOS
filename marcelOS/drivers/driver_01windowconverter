@@ -1,0 +1,153 @@
+local lastTouch = 0
+local lastPosX = 0
+local lastPosY = 0
+
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+local i,obj = 0
+local ok = -1
+local t = 0
+local px,py = 0,0
+local posx,posy = 0,0
+local n = 0
+local ap,ab = nil,false
+local obj2 = nil
+local new = nil
+
+function Process(_x,_y,_mousekey,monitor,monP) -- Only
+local new = nil
+local mouse_event = nil
+if ((lastTouch + 1) > os.clock()) and (lastPosX == _x) and (lastPosY == _y) then
+		-- DoubleClick
+		new = events.CreateEvent("mouse_doubleClick","driver_windowconverter",_mousekey,_x,_y,monP)
+		mTask.RawRaiseEvent(new)
+		else
+		if (monitor) and ((lastTouch + 0.6) > os.clock()) then -- Drag only on Monitor !!!
+			local adiff =  math.pow(_x-lastPosX,2)+math.pow(_y-lastPosY,2)
+			if adiff < 100 then -- 10^2 = 100
+				-- Drag!
+				new = events.CreateEvent("drag","driver_windowconverter",lastPosX,lastPosY,_x,_y,_mousekey,monP)
+				mTask.RawRaiseEvent(new)
+				end
+			end 
+		end
+
+	
+mouse_event = events.CreateEvent("mouse","driver_windowconverter",_mousekey,_x,_y,monP)
+mTask.RawRaiseEvent(mouse_event)
+
+n = windows.GetWindowatPos(mouse_event.params[2],mouse_event.params[3],monP)
+if #n > 0 then
+	obj = n[#n] 
+	if obj.task then
+	    posx = mouse_event.params[2]-obj.left
+		posy = mouse_event.params[3]-obj.top
+	    new = events.CreateEvent("mouse_click","driver_windowconverter",_mousekey,posx,posy,obj,monP)
+		mTask.RaiseHandleEvent(obj.task,new)
+		end
+	end
+
+lastTouch = os.clock()
+lastPosX = _x
+lastPosY = _y
+end
+
+-- internal 1.4.6 Touchscreen
+if (_event.name == "monitor_touch") then
+	new = events.CreateEventCopy(_event,"monitor_touch_system","driver_windowconverter")
+	mTask.RawRaiseEvent(new)
+
+	for i,obj in ipairs(mView.main.mon) do
+		if obj.m:conToSide(_event.params[1]) then
+			ok = i
+			end
+		end
+		
+	if ok > -1 then
+		obj = mView.main.mon[ok]
+		posx,posy = obj:LocaltoGlobal(_event.params[2] ,_event.params[3] )
+		Process(posx,posy,1,true,mView.main)
+		end
+	
+	_event.enabled = false
+	end	
+if (_event.name == "mouse_click") then
+	new = events.CreateEventCopy(_event,"mouse_click_system","driver_windowconverter")
+	mTask.RawRaiseEvent(new)
+	
+	i,ok = mView.main:HasPeripheral(mperipheral.TermPeripheral)
+	if ok > -1 then
+		obj = mView.main.mon[ok]
+		posx,posy = obj:LocaltoGlobal(_event.params[2] ,_event.params[3])
+		else
+		posx = _event.params[2]
+		posy = _event.params[3]
+		end
+	if not i then
+	    ap = mView.second
+		else
+		ap = mView.main
+		end
+	Process(posx,posy,_event.params[1],false,ap)
+	
+	_event.enabled = false	
+	end	
+if (_event.name == "key") then 
+	new = events.CreateEventCopy(_event,"key_system","driver_windowconverter")
+	mTask.RawRaiseEvent(new)
+	
+	obj = windows.GetActive()
+	if obj and obj.task then
+		new = events.CreateEvent("key","driver_windowconverter",_event.params[1],obj)
+		mTask.RaiseHandleEvent(obj.task,new)
+		end
+	_event.enabled = false	
+	end
+if (_event.name == "char") then 
+    new = events.CreateEventCopy(_event,"char_system","driver_windowconverter")
+	mTask.RawRaiseEvent(new)
+	
+	obj = windows.GetActive()
+	if obj and obj.task then
+		new = events.CreateEvent("char","driver_windowconverter",_event.params[1],obj)
+		mTask.RaiseHandleEvent(obj.task,new)
+		end
+	_event.enabled = false	
+	end
+if (_event.name == "mouse_drag") then
+	new = events.CreateEventCopy(_event,"mouse_drag_window","driver_windowconverter")
+	mTask.RawRaiseEvent(new)
+
+	i,ok = mView.main:HasPeripheral(mperipheral.TermPeripheral)
+	if ok > -1 then
+		obj = mView.main.mon[ok]
+		posx,posy = obj:LocaltoGlobal(_event.params[2] ,_event.params[3])
+		ap = mView.main
+		else
+		posx = _event.params[2]
+		posy = _event.params[3]	
+		ap = mView.second
+		end
+	new = events.CreateEvent("drag","driver_windowconverter",lastPosX,lastPosY,posx,posy,_event.params[1],ap)
+	mTask.RawRaiseEvent(new)
+	lastTouch = os.clock()
+	lastPosX = posx
+	lastPosY = posy
+	
+	_event.enabled = false	
+	end	
+if (_event.name == "drag") then
+	obj = windows.GetActive()
+	if obj and obj.task then
+		new = events.CreateEventCopy(_event,"mouse_drag")
+		new.params[#new.params] = obj
+		mTask.RaiseHandleEvent(obj.task,new)
+		end
+	end
+end
+
+function Driver_Initial()
+end

@@ -1,0 +1,7 @@
+name marcelOS
+owner Marcel_Maertens_http://marcelmaertens.funpic.de
+lastboot 13.415
+bootcount 6435
+bootfile marcelOS
+version 1.0
+checkInstall /marcelOS

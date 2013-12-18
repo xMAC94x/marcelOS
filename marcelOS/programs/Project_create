@@ -1,0 +1,141 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|false>eventfilter<>EventManager<3|false>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.window  =  windows.CreateWindow( Application.name , Application , true) 
+Application.window:SetSize(30,17)
+Application.window:FindSpace()
+local Data = ehtf.THTNode()
+
+local Label1 = winobj.TLabel("Label1",Application.window,Application.window)
+Label1.width = 6
+Label1.top = 2
+Label1.left = 2
+Label1.caption = "source"
+
+local Edit1 = winobj.TEdit("Edit1",Application.window,Application.window)
+Edit1.width = 15
+Edit1.top = 2
+Edit1.left = 10
+Edit1.border = false
+Edit1.text.text = "/"
+
+local Label2 = winobj.TLabel("Label2",Application.window,Application.window)
+Label2.width = 6
+Label2.top = 4
+Label2.left = 2
+Label2.caption = "dest"
+
+local Edit2 = winobj.TEdit("Edit2",Application.window,Application.window)
+Edit2.width = 15
+Edit2.top = 4
+Edit2.left = 10
+Edit2.border = false
+Edit2.text.text = "/newProject"
+
+local Label3 = winobj.TLabel("Label3",Application.window,Application.window)
+Label3.width = 6
+Label3.top = 6
+Label3.left = 2
+Label3.caption = "ver."
+
+local Edit3 = winobj.TEdit("Edit3",Application.window,Application.window)
+Edit3.width = 15
+Edit3.top = 6
+Edit3.left = 10
+Edit3.border = false
+Edit3.text.text = "0.0.1"
+
+local Label4 = winobj.TLabel("Label4",Application.window,Application.window)
+Label4.width = 6
+Label4.top = 8
+Label4.left = 2
+Label4.caption = "name"
+
+local Edit4 = winobj.TEdit("Edit4",Application.window,Application.window)
+Edit4.width = 15
+Edit4.top = 8
+Edit4.left = 10
+Edit4.border = false
+Edit4.text.text = ""
+
+
+local Checkbox1 = winobj.TCheckbox("Checkbox1",Application.window,Application.window)
+Checkbox1.width = 15
+Checkbox1.top = 10
+Checkbox1.left = 10
+Checkbox1.border = false
+Checkbox1.checked = false
+Checkbox1.caption = "incl. SHA1"
+
+Application.window:RegisterEvents(Application) 
+
+local function DoStart()
+local source = Edit1.text.text
+local dest = Edit2.text.text
+local version = Edit3.text.text
+local includesha1 = Checkbox1.checked
+local name = Edit4.text.text
+local conf = ehtf.THTNode()
+
+conf:Add("mode","create")
+conf:Add("name",name)
+conf:Add("source",source)
+if dest ~= "" then
+	conf:Add("dest",dest)
+	end
+conf:Add("version",version)
+conf:Add("includesha1",includesha1)
+
+local co = mTask.CreateTask( "mproject" )
+co.file = path.C( path.PROGRAMS() , "dll", "mprojectmeta" )
+co.args:Add(conf)
+co:run()
+end
+
+local function DoStart2()
+local source = Edit1.text.text
+local dest = Edit2.text.text
+local conf = ehtf.THTNode()
+
+conf:Add("mode","install")
+conf:Add("source",source)
+if dest ~= "" then
+	conf:Add("dest",dest)
+	end
+
+local co = mTask.CreateTask( "mproject" )
+co.file = path.C( path.PROGRAMS() , "dll", "mprojectmeta" )
+co.args:Add(conf)
+co:run()
+end
+
+
+local Button1 = winobj.TButton("Button1",Application.window,Application.window)
+Button1.width = 15
+Button1.top = 12
+Button1.left = 10
+Button1.border = true
+Button1.caption = "Create"
+Button1.onClick = DoStart
+
+local Button2 = winobj.TButton("Button1",Application.window,Application.window)
+Button2.width = 15
+Button2.top = 16
+Button2.left = 10
+Button2.border = true
+Button2.caption = "Install"
+Button2.onClick = DoStart2
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	Application.window:Event(obj)
+	Application.events[i] = nil
+	end
+end
+
+while true do
+	EventHandle()
+	Application.window.l:clear()
+	Application.window:Paint()
+	mTask.sleepEvent(Application,6)
+	end

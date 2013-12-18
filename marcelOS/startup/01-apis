@@ -1,0 +1,46 @@
+-- Load APIs
+-- Basic APIS till "EHTF" dont use API_INITIAL !!!
+local REIHE = {"classapi","path","vec3","mStrings","ehtfutils","ehtf","events","mperipheral","driver","ip","lps","mView","winobj","windows","mTaskModify","mTask","programs"}
+local ok = false
+local i,obj = 0
+
+local tApis = fs.list( "/marcelOS/apis" )
+for n,sFile in ipairs( tApis ) do
+	if not fs.isDir( sFile ) then
+		ok = true
+		for i,obj in ipairs( REIHE ) do
+			if obj == sFile then
+				ok = false
+				break
+				end
+			end
+		if ok then
+			REIHE[#REIHE+1] = sFile
+			end
+		end
+	end
+	
+boot.BootYield()
+
+for i,obj in ipairs( REIHE ) do 
+	os.loadAPI( fs.combine( "/marcelOS/apis", obj ) )
+	end
+
+boot.BootYield()	
+	
+-- After all API loadet, call the API.API_Initial()
+boot.BootMsg("Initial all APIS")
+for i,obj in ipairs( REIHE ) do 
+	local aname = obj .. ".API_Initial"
+	local afunc = driver.findfunction(aname) -- Driver API ist notwendig hier !!!
+	if afunc then
+	   assert(afunc)()
+       end
+	end
+	
+boot.BootYield()
+	
+-- Clear OS temp dir
+if path.TEMP() then
+	fs.delete(path.TEMP())
+	end

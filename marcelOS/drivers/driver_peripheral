@@ -1,0 +1,78 @@
+local function DetectAdd()
+local i,obj = 0
+local i2,obj2 = 0
+local p_sides = {"back","top","left","bottom","right","front"}
+local new,newe = 0
+local m = -1
+for i,obj in ipairs(p_sides) do
+	if peripheral.getType( obj ) then
+	   m = -1
+	   for i2,obj2 in ipairs(mperipheral.Peripherals) do	
+			if obj2:conToSide(obj) then
+				m = i2
+				end
+			end
+	   if (m == -1) then
+		  new = mperipheral.CreatePeripheral()		
+		  new.p = peripheral.wrap(obj)
+		  new.side = obj
+		  new.type = peripheral.getType(obj) 
+		  new.owner = "driver_peripheral"
+		  
+		  newe = events.CreateEvent("MPeripheral","driver_peripheral", "add", new , new.p)
+		  mTask.RawRaiseEvent(newe)
+		  end
+	   end
+	end
+end
+
+local function DetectDel()
+local i,obj = 0
+local i2,obj2 = 1,nil
+local p_sides = {"back","top","left","bottom","right","front"}
+local new,newe = 0
+local con = false
+local x = 0
+while i2 <= #mperipheral.Peripherals do
+	obj2 = mperipheral.Peripherals[i2]
+	con = true
+	if (obj2.owner == "driver_peripheral") then -- kümmer mich nur um meine ;)
+		con = false
+		for i,obj in ipairs(p_sides) do
+			if obj2:conToSide(obj) and (peripheral.wrap(obj) ~= nil) then 
+				con = true
+				break
+				end
+			end
+		end
+	if (not con) then
+		newe = events.CreateEvent("MPeripheral","driver_peripheral", "del", obj2 , obj2.p)
+		mTask.RawRaiseEvent(newe)
+		x = #mperipheral.Peripherals
+		mperipheral.Peripherals[i2] = mperipheral.Peripherals[x]
+		mperipheral.Peripherals[x] = nil
+		else
+		i2 = i2 + 1
+		end
+	end
+end
+
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+if (_event.name == "peripheral") then
+print("ShouldADD")
+	DetectAdd()
+	end
+if (_event.name == "peripheral_detach") then
+print("ShouldDEL")
+	DetectDel()
+	end
+end
+
+function Driver_Initial()
+DetectAdd()
+mView.main:CheckTerm()
+end

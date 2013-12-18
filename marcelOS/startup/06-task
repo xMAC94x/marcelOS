@@ -1,0 +1,12 @@
+local lastsleep =  os.clock() 
+
+-- THE ENDLESS LOOP OF COOLNES
+local Sleepvar = 0.1
+
+while true do
+	mTask.RunAll()
+	if lastsleep + Sleepvar < os.clock() then
+		lastsleep = os.clock()
+		mTask.GetEvents(0,false) 
+		end
+	end

@@ -1,0 +1,7 @@
+name redworks
+owner http://www.computercraft.info/forums2/index.php?/topic/11-121314redworks-addon/
+lastboot 5.524
+bootcount 4
+bootfile redworks
+version 1.4
+checkInstall /mem/autorun

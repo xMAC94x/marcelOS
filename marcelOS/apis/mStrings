@@ -1,0 +1,180 @@
+-- marcelOS functions
+boot.BootMsg("starting mStrings")
+
+TTextChar = classapi.class(nil,"TTextChar") 
+
+function TTextChar:__init()
+	self.text = ""
+	self.CursorX = 1
+	self.caret = "#"
+	self.caret2 = " "
+	self.caretvis = true
+end
+
+function TTextChar:Caret()
+if self.caretvis then
+	return self.caret
+	else
+	return self.caret2
+	end
+end
+
+function TTextChar:Blink()
+self.caretvis = not self.caretvis
+end
+
+function TTextChar:GetText() 
+return string.sub(self.text,1,self.CursorX) .. self:Caret() .. string.sub(self.text,self.CursorX+1)
+end
+
+function TTextChar:SetText(_atext)
+-- CursorX 
+-- maybee lastChange 
+self.text = _atext or ""
+if self.CursorX > string.len(self.text) then
+	self.CursorX = string.len(self.text)
+	end
+end
+
+function TTextChar:GetCutText(_width) 
+local astr = self:GetText()
+local offset = 3
+if string.len(astr) > _width then
+	if self.CursorX+offset-_width > 0 then
+		astr = string.sub(astr,self.CursorX+offset-_width,self.CursorX+offset)
+		else
+		astr = string.sub(astr,1,_width)
+		end
+	end
+return astr
+end
+
+function TTextChar:Add(_astr)
+self.text = string.sub(self.text,1,self.CursorX) .. _astr .. string.sub(self.text,self.CursorX+1)
+self:Right(string.len(_astr))
+end
+
+function TTextChar:Del(_acount)
+if self.CursorX > (_acount or 1) then
+	self.text = string.sub(self.text,1,self.CursorX-(_acount or 1)) .. string.sub(self.text,self.CursorX+1)
+	else
+	self.text = string.sub(self.text,self.CursorX+1)
+	end
+self:Left(_acount)
+end
+
+function TTextChar:Left(_acount)
+if self.CursorX >= (_acount or 1) then
+	self.CursorX = self.CursorX - (_acount or 1)
+	return true
+	else
+	self.CursorX = 1
+	return false
+	end
+end
+
+function TTextChar:Right(_acount)
+if self.CursorX <= (string.len(self.text)-(_acount or 1)) then
+	self.CursorX = self.CursorX + (_acount or 1)
+	return true
+	else
+	self.CursorX = string.len(self.text)
+	return false
+	end
+end
+
+
+function FileEnding( _str )
+local x = string.len(_str)
+local ok = false
+local result = ""
+while x > 0 do
+	if string.char(string.byte(_str , x)) == "." then
+		ok = true
+		break
+		end
+	x = x - 1
+	end
+if ok then
+	result = string.sub(_str,x)
+	end
+return result
+end
+
+function merge(_atable,sep,_count,firstnosep)
+local i = 1
+local obj = ""
+for i = 1,_count do
+	if (i < _count) and (not (firstnosep and (i == 1))) then 
+		obj = obj .. tostring(_atable[i]) .. sep
+		else
+		obj = obj .. tostring(_atable[i])
+		end
+	end 
+return obj
+end
+
+function split(astr,sep)
+local sep, fields = sep or ":", {}
+local pattern = string.format("([^%s]+)", sep)
+astr:gsub(pattern, function(c) fields[#fields+1] = c end)
+return fields
+end
+
+function SplitInt(astr,sep)
+local sep, fields = sep or ":", {}
+local pattern = string.format("([^%s]+)", sep)
+astr:gsub(pattern, function(c) fields[#fields+1] = c end)
+for i,obj in ipairs(fields) do 
+	fields[i] = tonumber(fields[i]) 
+	end
+return fields
+end 
+
+function doubleTable( astr , aseperator , aseperator2)
+local result = {}
+--local a = Worter(astr,aseperator)
+local a = split(astr,aseperator)
+local i,obj = 0
+for i,obj in ipairs(a) do
+	result[#result+1] = split(obj, aseperator2)
+	end
+return result
+end 
+
+function doubleTableINT( _str , _seperator , _seperator2)
+local result = doubleTable( _str , _seperator , _seperator2)
+local i,obj = 0
+for i,obj in ipairs(result) do
+	for i2,obj2 in ipairs(obj) do
+		result[i][i2] = tonumber(obj2)
+		end
+	end
+return result
+end 
+
+function TabletoStr( _table , _seperator)
+local result = ""
+local i,obj = 1,nil
+for i,obj in ipairs(_table) do
+	if i > 1 then 
+		result = result .. (_seperator or " ").. tostring(obj)
+		else
+		result = tostring(obj)
+		end
+	end
+return result
+end 
+
+function UUID()
+local chars = {"0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"}
+local uuid = {[9]="-",[14]="-",[15]="4",[19]="-",[24]="-"}
+local index = 0
+for i = 1,36 do
+	if (uuid[i]==nil) then
+			index = math.random (16)
+			uuid[i] = chars[index]
+			end
+	end
+return table.concat(uuid)
+end

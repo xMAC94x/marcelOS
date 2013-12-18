@@ -1,0 +1,32 @@
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Initial()
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+local newe = nil
+local done = ""
+if (_event.name == "MPeripheral") and (_event.params[2].type == "cable") then
+	if (_event.params[1] == "add") then
+		done = "add"
+
+		local sides = { _event.params[2].p.list() }
+		for i,obj in ipairs(sides) do 
+			new = mperipheral.CreatePeripheral()		
+			new.p = peripheral.wrap(obj)
+			new.side = obj
+			new.type = peripheral.getType(obj) 
+			new.owner = "driver_peripheralcable"
+		  
+			newe = events.CreateEvent("MPeripheral","driver_peripheralcable", "add", new , new.p)
+			mTask.RawRaiseEvent(newe)
+			end
+
+		else
+		done = "del"
+		end
+	end
+	
+end

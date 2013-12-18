@@ -1,0 +1,493 @@
+--[[
+Just Put all the modify stuff here so that mTask is cleaner :)
+
+
+test line
+--print(ah ,func(hello(), offset ,  offsetfunc(nooffset,   "this" ..  "alotoffset"    )  ,asd(isthishello,thisislove(),hello,ld(x))),bfunc,cfunc())
+]]
+
+boot.BootMsg("starting mTaskModify")
+
+
+
+
+
+
+TTaskModiPos = classapi.class(nil,"TTaskModiPos")
+function TTaskModiPos:__init()
+	self.start = -1
+	self.type = "data"
+	self.data = ""
+	self.parent = nil
+	self.Params = vec3.TList()
+end
+
+function TTaskModiPos:GetString()
+-- Builds a string out of all params ...
+local i,obj = 0,nil
+local result = ""
+local astr = ""
+if self.type == "func" then
+	result = self.about .. "("
+	for i,obj in ipairs(self.Params) do
+		result = result .. obj:GetString()
+		if (i ~= #self.Params) and (obj.type == "param") then
+			result = result .. ","
+			end
+		end
+	result = result .. ")"
+elseif self.type == "param" then
+	result = self.data
+elseif self.type == "data" then
+	result = self.data
+elseif self.type == "line" then
+	local i2,obj2 = 0,nil
+	for i2,obj2 in ipairs(self.Params) do
+		result = result .. " " .. obj2:GetString() .. " "
+		end	
+	end
+return result
+end
+
+function TTaskModiPos:ToEHTF()
+-- Builds a string out of all params ...
+local i,obj = 0,nil
+local result = ehtf.THTNode()
+result:Add("start",self.start)
+result:Add("type",self.type)
+if self.about then
+	result:Add("about",self.about or "")
+	end
+if self.data then
+	result:Add("data",self.data or "")
+	end
+if self.lineid then
+	result:Add("lineid",self.lineid or "")
+	end
+if self.Params and (#self.Params > 0)then
+	local p = result:Add("Params","")
+	for i,obj in ipairs(self.Params) do
+		p:Add(obj:ToEHTF())
+		end
+	end
+return result
+end
+
+function DelString(astr)
+local i,maxi,mini = 0,0,0
+local achar = 0
+
+for i = string.len(astr),1,-1 do
+	achar = string.byte(astr,i)
+	if (achar >= 33) then
+		maxi = i -- obere Grenze
+		break
+		end
+	end
+	
+for i = 1,maxi do
+	achar = string.byte(astr,i)
+	if (achar >= 33) then
+		mini = i -- untere Grenze
+		break
+		end
+	end
+
+return string.sub(astr,mini,maxi)
+end
+
+function SepParam(astr)
+local result = {}
+local i = 0
+local bstr = ""
+local last = 1
+
+for i = 1,string.len(astr) do
+	achar = string.byte(astr,i)
+	if (achar == 44) then
+		bstr = string.sub(astr,last,i-1)
+		result[#result+1] = DelString(bstr)
+		last = i+1
+		end
+	end
+if string.len(astr) >= last then
+	bstr = string.sub(astr,last)
+	result[#result+1] = DelString(bstr)
+	end
+
+return result
+end
+
+function CompleteLine(astr)
+-- Check ob alle "(" bzw "{" auch geschlossen werden...
+local i,obj = 0,nil
+local NCount = 0 --(  40   41
+local GCount = 0 --{  123  125
+local ECount = 0 --[  91   93
+local inComment1 = false --' 39
+local inComment2 = false --" 34
+for i = 1,string.len(astr) do
+	local a = string.byte(astr,i)
+	--print(tostring(inComment1) .. " " .. tostring(inComment2))
+	if a == 39 then inComment1 = not inComment1 end
+	if not inComment1 then
+		if a == 34 then inComment2 = not inComment2 end
+		if not inComment2 then
+			if a == 40 then
+				NCount = NCount +1
+				elseif a == 41 then
+					NCount = NCount -1
+					elseif a == 123 then
+						GCount = GCount + 1
+							elseif a == 125 then
+								GCount = GCount - 1
+									elseif a == 91 then
+										ECount = ECount + 1
+											elseif a == 93 then
+												ECount = ECount - 1
+												end
+			end
+		end
+	end
+return ((NCount == 0) and (GCount == 0) and (ECount == 0))
+end
+
+function KillComments(astr)
+local i,obj = 0,nil
+local inCom = false
+local inText = false
+local last = ""
+local amax = string.len(astr)
+for i = 1,amax do
+	local a = string.sub(astr,i,i)
+	local b = string.sub(astr,i,i+1)
+    if (a == "\"") then
+		if last ~= "\\" then
+			inCom = not inCom
+			end
+		end
+	if b == "--" then
+		if string.sub(astr,i,i+3) ~= "--[[" then
+			if (not inCom) and (not inText) then
+				astr = string.sub(astr,1,i-1)
+				return astr
+				end
+			else
+			inCom = true
+			end	
+		end
+	if b == "]]" then
+		inCom = false
+		end
+	last = a
+	end
+return astr
+end
+
+function GenerateInfo(aTask,loading)
+local astr = ""
+local bstr = "" --only intern
+local cstr = ""
+local lineend =  string.char(13).. string.char(10)
+local file = nil
+
+local Lines = {} -- holds all lines
+
+local i,obj = 1,nil
+local i2,obj2 = 1,nil
+local new = nil
+local sLine = ""
+local cLine = ""
+
+file = fs.open(aTask.g.file,"r")
+sLine = file.readLine()
+while sLine do
+	if ((cstr == "") and CompleteLine(sLine))then
+		new = TTaskModiPos()
+		new.type ="line"
+		new.data = loading(aTask,#Lines+1,sLine)
+		new.lineid = #Lines + 1
+		Lines[#Lines + 1] = new
+		else
+		cstr = cstr .. " " .. KillComments(sLine)
+		if CompleteLine(cstr) then
+			new = TTaskModiPos()
+			new.type ="line"
+			new.data = loading(aTask,#Lines+1,cstr)
+			new.lineid = #Lines + 1
+			Lines[#Lines + 1] = new
+			cstr = ""
+			end
+		end
+	sLine = file.readLine()
+	end	
+file.close()
+
+function InitialFunc(_funcs,_deep,_astart,_obj)
+_funcs[_deep] = TTaskModiPos()
+_funcs[_deep].start = _astart
+_funcs[_deep].parent = _funcs[_deep-1]
+_funcs[_deep].line = _obj 
+_funcs[_deep-1].Params:Add(_funcs[_deep])
+end
+
+function AddParam(_funcs,_deep,_astart,_obj,_i2)
+_deep = _deep + 1
+InitialFunc(_funcs,_deep,_astart,_obj)
+_funcs[_deep].start = _astart
+_funcs[_deep].type = "param"
+_funcs[_deep].pend = _i2-1	
+_funcs[_deep].data = string.sub(_obj.data,_funcs[_deep].start,_funcs[_deep].pend)
+_deep = _deep - 1
+end
+
+function AddData(_funcs,_deep,_astart,_obj,_i2)
+AddParam(_funcs,_deep,_astart,_obj,_i2)
+_funcs[_deep+1].type = "data"
+end
+
+for i,obj in ipairs(Lines) do	
+	-- NEW
+	local deep = 1
+	local funcs = vec3.TList()
+	funcs:Add(obj)
+	local strbetween = false
+	local laststr = 1
+	local p = nil
+	local astart = 1
+	
+	for i2 = 1,string.len(obj.data) do
+		achar = string.byte(obj.data,i2)	
+		-- 40: (
+		-- 41: )
+		-- 9: Tab
+		-- 32: Leerzeichen
+		-- 44: ,
+		if (achar == 40) then
+			if ((i2-1) >= astart) then
+				--AddData(funcs,deep,astart,obj,i2)
+				end
+			deep = deep + 1
+			InitialFunc(funcs,deep,astart,obj)
+			funcs[deep].start = astart
+			funcs[deep].paramstart = i2
+			funcs[deep].type = "func"
+			funcs[deep].about = DelString(string.sub(obj.data,funcs[deep].start,funcs[deep].paramstart-1))
+			astart = i2+1
+			elseif (achar == 41) then
+				funcs[deep].pend = i2	
+				funcs[deep].data = string.sub(obj.data,funcs[deep].start,funcs[deep].pend)
+				
+				-- Add the last entry to Function !
+				if ((i2-1) >= astart) then
+					AddParam(funcs,deep,astart,obj,i2)
+					end
+				
+				-- Finish Function
+				astart = i2+1
+				deep = deep - 1
+				
+				elseif (achar == 44) and (deep > 1) and ((i2-1) >= astart) then
+					-- Add an entry to Function !
+					AddParam(funcs,deep,astart,obj,i2)
+					astart = i2+1
+					elseif (achar == 32) and (deep == 1) then
+						if ((i2-1) >= astart) then
+							AddData(funcs,deep,astart,obj,i2)
+							end
+						astart = i2+1
+						end
+		end
+	if (string.len(obj.data) >= astart) then
+		AddData(funcs,deep,astart,obj,string.len(obj.data)+1)
+		astart = string.len(obj.data)+1
+		end
+	end
+return Lines
+end
+
+
+function afunc(aTask,acount,astr)
+-- ON LOADING
+local result = astr
+local lineend =  string.char(13).. string.char(10)
+if acount == 1 then
+	aTask.mTaskModifiy_mMultiOS = (DelString(astr) == "--mMultiOS")
+	result = " local Application ,ApplicationSU = mTask.LastStarted() coroutine.yield() " .. result
+	end 
+if (acount == 2) and (aTask.mTaskModifiy_mMultiOS) then
+	local p,o,o2,o3,o4 = nil,nil,nil,nil,nil
+	p = ehtf.THTNode()
+	p:FromStr(astr)
+	result = ""
+	if p then
+		o = p:FindAboutC("marcelOS")
+		if not o then
+			o = p:FindAboutC("Other")
+			end
+		if o then
+			o2 = o:FindAboutC("info")
+			if o2 then
+				o3 = o2:FindAboutC("IdleCount")
+				if o3 then
+					aTask.rt_fak = o3:SValuesI(1)
+					end
+				o3 = o2:FindAboutC("changePrint")
+				if o3 then
+					aTask.mTaskModify_changePrint = o3:SValuesB(1)
+					end
+				o3 = o2:FindAboutC("eventfilter")
+				if o3 then
+					local i = 1
+					for i = 1,#o3.Values do
+						result = result .. ' Application.eventfilter:AddOnce("' .. o3:SValuesS(i) .. '") ' 
+						end
+					end
+				o3 = o2:FindAboutC("EventManager")
+				if o3 and o3:SValuesB(1) then
+					result = result .. " local function EventHandle() " .. lineend .. " local i,obj = 0  for i, obj in ipairs(Application.events) do getEvent(obj) if (Application.window) then Application.window:Event(obj) end Application.events[i] = nil end " .. lineend .. " end "									
+					end
+				o3 = o2:FindAboutC("Debug")
+				if o3 and o3:SValuesB(1) then
+					result = result .. " local function Debug(title,msg,color) " .. lineend .. " if ThrowDebug then ThrowDebug(Application,title,msg,color) end " .. lineend .. " end "									
+					end
+				end
+			o2 = o:FindAboutC("code")
+			if o2 then
+				result = result .. o2:SValuesS(1)
+				end
+			end
+		end
+	end
+if (acount == 2) and (not aTask.mTaskModifiy_mMultiOS) then
+	result = "  Application.window  =  windows.CreateWindow( Application.name , Application , true)  " .. result
+	end
+return result
+end
+
+
+function bfunc(aTask,acount,astr)
+-- AFTER EDITITNG
+local ok = true
+if (DelString(astr) == "") or (aTask.su) then ok = false
+	elseif (acount <= 2) and (aTask.mTaskModifiy_mMultiOS) then ok = false
+    elseif (string.find(astr,"end") ~= nil) or (astr == "end") then ok = false
+	elseif (string.find(astr,"or") ~= nil) or (astr == "or") then ok = false -- eigentlich nur am ende !
+	elseif (string.find(astr,"and") ~= nil) or (astr == "and") then ok = false
+	elseif (string.find(astr,"=") ~= nil) or (astr == "=") then ok = false
+	elseif (string.find(astr,"return") ~= nil) or (astr == "return") then ok = false
+	elseif (string.find(astr,"break") ~= nil) or (astr == "break") then ok = false
+	end
+if ok then
+	aTask.mTaskModifiy_linefak = aTask.mTaskModifiy_linefak + 1
+	if (math.fmod(aTask.mTaskModifiy_linefak,aTask.rt_fak) > 0) then 
+		ok = false
+		aTask.mTaskModifiy_linefak = 0
+		end
+	end
+if ok then 
+	astr = astr .. " mTask.Idle() "
+	end
+return astr
+end
+
+function EditFile(aTask)
+local Lines = GenerateInfo(aTask,afunc)
+local i,obj = 0,nil
+local i2,obj2 = 0,nil
+local p = ""
+print("EditFile")
+aTask.g.useevents = not aTask.mTaskModifiy_mMultiOS
+aTask.mTaskModifiy_linefak = 0
+for i2,obj2 in ipairs(Lines) do
+	for i,obj in ipairs(obj2.Params) do
+		if obj.type == "func" then
+			if (obj.about == "sleep") or (obj.about == "os.sleep") then 
+				obj.about = "mTask.sleep"
+				local new = TTaskModiPos()
+				new.pend = -1
+				new.data = "Application"
+				new.start = 1
+				new.type = "param"
+				vec3.insertPos(obj.Params,new,1)
+				end
+			if ((obj.about == "print") or (obj.about == "term.print")) and ((aTask.mTaskModify_changePrint == nil) or (aTask.mTaskModify_changePrint == true)) then 
+				obj.about = "Application.window:print"
+				end
+			if ((obj.about == "slowPrint") or (obj.about == "textutils.slowPrint")) then 
+				obj.about = "Application.window:print"
+				end
+			if (obj.about == "write") or (obj.about == "term.write") then 
+				obj.about = "Application.window:write"
+				end
+			if (obj.about == "run") or (obj.about == "os.run") then 
+				obj.about = " local co = mTask.CreateTask(" .. (obj.Params[2].data or "") .. ")  co.file = " .. (obj.Params[2].data or "") .. " co.args = " .. (obj.Params[3].data or "") .. " co:run() "
+				obj.type = "data"
+				obj.Params = vec3.TList() -- no function any more
+				end
+			if (obj.about == "shell.run") then 
+				obj.about = " local co = mTask.CreateTask(" .. (obj.Params[1].data or "") .. ")  co.file = " .. (obj.Params[1].data or "") .. " co.args = " .. (obj.Params[2].data or "") .. " co:run() "
+				obj.type = "data"
+				obj.Params = vec3.TList() -- no function any more
+				end
+			if (obj.about == "shell.resolve") then 
+				obj.about = ""
+				end
+			if (obj.about == "send") or (obj.about == "rednet.send") then 
+				obj.about = "ip.SendMessage( nil, " .. (obj.Params[1].data or "") .. ", nil, 100, nil , " .. (obj.Params[2].data or "") .. " ) "
+				obj.Params = vec3.TList() -- no function any more
+				end	
+			if (obj.about == "term.getSize") then 
+				obj.data = " Application.window.width , Application.window.height "
+				obj.type = "data"
+				obj.Params = vec3.TList() -- no function any more
+				end	
+			if (obj.about == "term.setBackgroundColor") or (obj.about == "term.setBackgroundColour") then 
+				obj.about = "Application.window.l:setBackColor"
+				end	
+			if (obj.about == "term.setTextColor") or (obj.about == "term.setTextColour") then 
+				obj.about = "Application.window.l:setFontColor"
+				end	
+			if (obj.about == "term.clear") then 
+				obj.about = "Application.window.l:clear"
+				obj.data = "Application.window.l:clear()"
+				obj.Params = vec3.TList() -- no function any more
+				end
+			if (obj.about == "term.clearLine") then 
+				obj.about = "Application.window.l:clearLine"
+				obj.data = "Application.window.l:clearLine()"
+				obj.Params = vec3.TList() -- no function any more
+				end	
+			if (obj.about == "term.setCursorPos") then 
+				obj.about = "Application.window.l:setCursorPos"		
+				end
+			if (obj.about == "term.getCursorPos") then 
+				obj.about = "Application.window.l:getCursorPos"
+				end
+			if (obj.about == "os.pullEvent") then 
+				obj.about = "Application:WaitForEvent"		
+				end
+			if (obj.about == "read") then 
+				obj.about = "Application:DoRead"		
+				end
+			end
+		end
+	end
+	
+p = string.char(13) .. string.char(10)
+local Data = ""
+local last = 1
+local i3,obj3 = 0,nil
+--print("startEdit")
+
+
+--local anode = ehtf.THTNode()
+for i2,obj2 in ipairs(Lines) do
+	--anode:Add(obj2:ToEHTF())
+	Data = Data .. bfunc(aTask,i2,obj2:GetString()) .. p
+	--Data = Data .. obj2.data .. p
+	end
+--anode:SavetoFile("Heyho.ehtf")
+--print("finishEdit")
+return Data
+end

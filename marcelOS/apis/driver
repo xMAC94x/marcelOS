@@ -1,0 +1,111 @@
+--drivers sorgt dafür das Alle Events richtig interpretiert werden. Dynamisch Events hinzugefügt werden können...
+boot.BootMsg("starting drivers")
+
+local drivers = {} -- SU Task hier sind alle wichtigen eigenschaften
+TDriver = classapi.class(nil,"TDriver") 
+local version = "0.1"
+
+driver_sides = {"back","top","left","bottom","right","front"}
+
+
+function TDriver:__init( _name )
+	self.name = _name
+	self.file = path.C(path.DRIVERS(),_name)
+	self.args = {}
+	self.init = false
+	drivers[#drivers+1] = self
+end
+
+function TDriver:Init()
+if (not self.init) then
+	local ver = self:GiveFunc("Driver_Initial")
+	if ver then
+		ver()
+		end
+	self.init = true
+	end
+end
+
+function findfunction(x)
+  assert(type(x) == "string")
+  local f=_G
+  for v in x:gmatch("[^%.]+") do
+    if type(f) ~= "table" then
+       return nil, "looking for '"..v.."' expected table, not "..type(f)
+    end
+    f=f[v]
+  end
+  if type(f) == "function" then
+    return f
+  else
+    return nil, "expected function, not "..type(f)
+  end
+end
+
+
+function TDriver:GiveFunc(aname)
+local aevnt = findfunction(self.name .. "." .. aname)
+if aevnt then
+	return assert(aevnt)
+	else
+	boot.BootMsg("Driver '" .. self.name .. "' failed to load!") 
+	return nil
+	end
+end
+
+
+-- USER FUNCTIONS
+function CreateDriver(name)
+local new = TDriver(name or "")
+os.loadAPI( new.file )
+local ver = new:GiveFunc("Driver_Meta_Version")
+if ver then
+	boot.BootMsg("Driver '" .. new.name .. "' v.:" .. tostring(ver()))
+	end
+end
+
+function LoadAllDrivers()
+local ok = false
+local fFile,obj = ""
+local n,i = 0
+
+local tApis = fs.list( path.DRIVERS() )
+for n,sFile in ipairs( tApis ) do
+	if not fs.isDir( sFile ) then
+		ok = true
+		for i,obj in ipairs( drivers ) do
+			if obj.name == sFile then
+				ok = false
+				break
+				end
+			end
+		if ok then
+			CreateDriver(sFile)
+			end
+		end
+	end
+	
+for i,obj in ipairs( drivers ) do
+	obj:Init()
+	end
+end
+
+
+function EventInterpreter( _event )
+local i,obj = 0
+for i,obj in ipairs( drivers ) do
+	local aevnt = obj:GiveFunc("Driver_Event")
+	if aevnt and _event and _event.enabled then
+		local answ = aevnt(_event)
+		end
+	end
+end
+
+function API_Initial()
+LoadAllDrivers()
+local new = events.CreateEvent("Initialised","driver", "driver")
+mTask.RawRaiseEvent(new)
+end
+
+
+

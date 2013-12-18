@@ -1,0 +1,110 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|false>IdleCount<1|1>EventManager<3|false>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.useevents = true
+Application.window:SetSize(30,23)
+Application.window:FindSpace(111)
+local Data = ehtf.THTNode()
+
+local MultiLabel1 = winobj.TMultiLabel("MultiLabel1",Application.window,Application.window)
+MultiLabel1.top = 2
+MultiLabel1.left = 2
+MultiLabel1.width = 20
+MultiLabel1.height = 5
+MultiLabel1.data:write("source xD") 
+
+local function DoStart()
+local conf = ehtf.THTNode()
+local mode = ""
+local source = Edit1.text.text
+local dest = Edit2.text.text
+local includerom = Checkbox2.checked
+local oneLine = Checkbox3.checked or Checkbox4.checked or Checkbox5.checked
+local output = ehtf.THTNode()
+local p = nil
+local timeout = 20
+local acount = 0
+local extractpath = Edit3.text.text
+
+if Checkbox1.checked then 
+	mode = "extract"
+   else 
+	mode = "compress"
+	end
+
+conf:Add("mode",mode)
+conf:Add("source",source)
+conf:Add("dest",dest)
+conf:Add("includerom",includerom)
+conf:Add("oneLine",oneLine)
+
+local co = mTask.CreateTask( "zip" )
+co.file = path.C( path.PROGRAMS() , "mzip" )
+co.args:Add(conf)
+if Checkbox4.checked or Checkbox5.checked then
+	output:Add("string")
+	co.args:Add(output)
+	end
+co:run()
+
+if Checkbox4.checked or Checkbox5.checked then
+	
+	p = output:FindAboutC("data")
+	while not p do
+		sleep(1)
+		print("waiting...")
+		acount = acount + 1
+		if acount >= timeout then
+			print("ERROR mzip timed out")
+			break
+			end
+		p = output:FindAboutC("data")
+		end
+
+	print("create file")
+	local template = ehtfutils.Bin2FileToString(path.C(path.DATA(),"createstartdisk/selfextract_template"))
+	if Checkbox5.checked then
+		local template2 = ehtfutils.Bin2FileToString(path.C(path.DATA(),"createstartdisk/install_template"))
+		local template3 = ehtfutils.Bin2FileToString(path.C(path.DATA(),"createstartdisk/installfinished_template"))
+		template = template2 .. " local dest = \"/\"  local myData = \"" .. p:SValuesS(1) .. "\"  " .. template .. "  " .. template3
+		else
+		if extractpath == "" then
+			template = "print(\"enter extraction path\") local dest = read()  local myData = \"" .. p:SValuesS(1) .. "\"  " .. template 
+			else
+			template = "local dest = \"" .. extractpath .. "\"  local myData = \"" .. p:SValuesS(1) .. "\"  " .. template
+			end
+		end
+	ehtfutils.StringToFile(dest,template)	
+	--print(template)
+	end
+
+
+end
+
+
+local Button1 = winobj.TButton("Button1",Application.window,Application.window)
+Button1.width = 15
+Button1.top = 17
+Button1.left = 10
+Button1.border = true
+Button1.checked = true
+Button1.caption = "Start"
+Button1.onClick = DoStart
+
+local function getEvent(_event)
+Application.window:Event(_event)
+end
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+while true do
+	EventHandle()
+	Application.window.l:clear()
+	Application.window:Paint()
+	sleep(0.1)
+	end

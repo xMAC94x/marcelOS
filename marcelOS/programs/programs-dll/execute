@@ -1,0 +1,11 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|execute>version<1|0.1>>>other<info<0||name<0|execute>version<2|0.1>>>>
+local Arg = {...}
+
+local co = mTask.CreateTask( Application.name )
+co.file = Arg[1]
+local i,obj = 1,nil
+for i = 2,#Arg do
+	co.args:Add(Arg[i])
+	end
+co:run()

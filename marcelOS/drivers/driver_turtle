@@ -1,0 +1,26 @@
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+if (_event.name == "turtle") then
+	if _event.params[1] == "forward" then
+		mgps.forward()
+	elseif _event.params[1] == "back" then
+		mgps.back()
+	elseif _event.params[1] == "turnRight" then
+		mgps.turnRight()
+	elseif _event.params[1] == "turnLeft" then
+		mgps.turnLeft()
+	elseif _event.params[1] == "up" then
+		mgps.up()
+	elseif _event.params[1] == "down" then
+		mgps.down()
+	elseif _event.params[1] == "refuel" then
+		turtle.refuel(_event.params[2])
+		end
+	end
+end
+
+function Driver_Initial()
+end

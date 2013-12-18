@@ -1,0 +1,40 @@
+local data = ehtf.THTNode()
+boot.BootMsg("starting programs")
+
+function GetFileExt(_ext)
+local i,obj
+local p = data:FindAboutC("fileext")
+if p then
+	for i,obj in ipairs(p.nodes) do
+		local o = obj:FindAboutC("ext")
+		if o and (o:SValuesS(1) == _ext) then
+			local p2 = obj:FindAboutC("dll")
+			if p2 then
+				return p2:SValuesS(1)
+				end
+			end
+		end
+	end
+return nil
+end
+
+function OpenFile(file,arg,name)
+local _ext = mStrings.FileEnding(file)
+local prg = GetFileExt(_ext)
+if prg then
+	local co = mTask.CreateTask( name or prg )
+	co.file = prg
+	co.args:Insert(file,1)
+	local i,obj = 1,nil
+	for i,obj in ipairs(arg or {}) do
+		co.args:Add(obj)
+		end
+	co:run()
+	return true
+	end
+return false
+end
+
+function API_Initial()
+data:LoadfromFile(path.C(path.DATA() , "programs","settings.ehtf"))
+end

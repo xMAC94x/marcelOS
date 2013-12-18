@@ -1,0 +1,52 @@
+-- marcelOS functions
+boot.BootMsg("starting events")
+
+local TEvents = classapi.class(nil,"TEvents")  -- SU Task hier sind alle wichtigen eigenschaften
+
+function TEvents:__init( name , owner , ... )
+	self.name = name
+	self.owner = owner
+	self.params = {...}
+	self.enabled = true -- set to false if you want to KILL the event....
+end
+
+function TEvents:copy( _event ) 
+self.name = _event.name
+self.owner = _event.owener
+self.enabled = _event.enabled
+self.params = {}
+local i,obj = 0
+for i,obj in ipairs(_event.params) do
+	self.params[i] = obj	
+	end
+end
+
+function TEvents:instring() 
+local astr = "NAME: " .. self.name .. "    Owner: " .. self.owner .. "    Params:"
+local i,obj = 0
+for i,obj in ipairs(self.params) do
+	astr = astr .. " " .. obj 
+	end
+return astr
+end
+
+function CreateEvent(event, owner , ...)
+return TEvents(event, owner , ...)
+end
+
+function CreateEventCopy(event, newname , newowner)
+local new = events.CreateEvent()
+new:copy(event)
+if newname then
+	new.name = newname
+	end
+ if newowner then
+	new.owner = newowner
+	end
+return new
+end
+
+function API_Initial()
+new = events.CreateEvent("Initialised","events", "events")
+mTask.RawRaiseEvent(new)
+end

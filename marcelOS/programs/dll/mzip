@@ -1,0 +1,156 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|false>IdleCount<1|100>EventManager<3|false>Debug<3|true>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+-- Can Compress / extract a Directory in a single string
+local tArgs = {...}
+-- Args 1: Data in EHTF
+-- Args: mode (compress / extract)
+-- Args: source
+-- Args: dest
+-- Args: includerom
+-- Args: oneLine
+
+-- Args 2: Output EHTF
+-- Args: data
+local conf = ehtf.THTNode()
+local output = tArgs[2]
+local p = nil
+if type(tArgs[1]) == "table" then
+	conf = tArgs[1]
+	else
+	conf:FromStr(tArgs[1])
+	end
+local source = "/"
+local dest = "/compressed.mzip"
+local mode = ""
+local includerom = false
+local oneLine = false
+local asleepcount = 1
+
+p = conf:FindAboutC("mode")
+if p then
+	mode = p:SValuesS(1)
+	end
+p = conf:FindAboutC("source")
+if p then
+	source = p:SValuesS(1)
+	end	
+p = conf:FindAboutC("dest")
+if p then
+	dest = p:SValuesS(1)
+	end
+p = conf:FindAboutC("includerom")
+if p then
+	includerom = p:SValuesB(1)
+	end
+p = conf:FindAboutC("oneLine")
+if p then
+	oneLine = p:SValuesB(1)
+	end	
+
+local Data = ehtf.THTNode()
+
+function AlternativeCutOut(Sender , achar , bchar)  local abyte = string.byte(achar)  local result = ((achar == Sender.vardec._Begin)
+		or (achar == Sender.vardec._End) 
+		or (achar == Sender.vardec._Array) 
+		or (achar == Sender.vardec._System) 
+		or (abyte == 34) -- "
+		or (abyte == 0)
+		or (abyte == 10)
+		or (abyte == 13)
+		or (abyte == 92) -- \
+		)  return result  end
+
+if oneLine then
+	Data.CutOutfunc = AlternativeCutOut
+	end
+
+local function LoadData(adata,apath,aname)
+local i,obj = 1,nil
+local tData = fs.list( apath )
+local p,o,p2 = nil,nil,nil
+local ap = ""
+
+p = adata:Add("folder","")
+p:Add("name",aname)
+p:Add("path",apath)
+o = p:Add("sub","")
+for i,obj in ipairs(tData) do
+	ap = path.C(apath,obj)
+	if fs.isDir(ap) then
+		if includerom or (ap ~= "/rom") then -- we dont load rom !
+			LoadData(o,  ap  ,obj)
+			end
+		else
+		p2 = o:Add("file","")
+		p2:Add("name",obj)
+		p2:Add("path",ap)
+		p2:Add("data", ehtfutils.FileToString(ap))
+		end
+	end
+end
+
+local function ExtractData(adata,apath)
+local i,obj = 1,nil
+local p,o,p2,p3 = nil,nil,nil
+local ap,bp = ""
+local aname = ""
+local afile = ""
+local filedata = ""
+p = adata:FindAboutC("name")
+if p then 
+	aname = p:SValuesS(1)
+	ap = path.C(apath,aname)
+	fs.makeDir(ap)
+	end
+o = adata:FindAboutC("sub")
+	
+for i,obj in ipairs(o.nodes) do
+	if obj.about == "folder" then
+		ExtractData(obj,ap)
+		else
+		p2 = obj:FindAboutC("name")
+		if p2 then
+			afile = p2:SValuesS(1)
+			bp = path.C(ap,afile)
+			p3 = obj:FindAboutC("data")
+			if p3 then
+				filedata = p3:SValuesS(1)
+				ehtfutils.StringToFile(bp,filedata)
+				end
+			end
+		end
+	end
+end
+
+if mode == "compress" then
+	Debug("compressing")
+	LoadData(Data,source,source)
+	local lmode = vec3.Copy(ehtfutils.stToStrMode)
+	lmode["tsUseInsert"] = false
+	Debug("done1")
+	if output then
+		if output:FindAboutC("string") then
+			output:Add("data",Data:ToStr(lmode,SaveTimout))
+			else
+			local p = output:Add("data","")
+			p:Add(Data)
+			end
+		else
+		Debug("k")
+		Data:SavetoFile(dest,lmode)
+		Debug("SAVED to " .. dest)
+		end
+
+	end
+if mode == "extract" then
+	Debug("extracting")
+	if not fs.exists(dest) then
+		fs.makeDir(dest)
+		end
+		
+	Data:LoadfromFile(source)
+	ExtractData(Data:FindAboutC("folder"),dest)
+	Debug("Done")
+
+	end
+	

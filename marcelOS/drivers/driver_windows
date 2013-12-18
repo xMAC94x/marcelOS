@@ -1,0 +1,155 @@
+local lastTouch = 0
+local lastPosX = 0
+local lastPosY = 0
+
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function secondFlush()
+mView.second:Flush()
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+local i,obj = 0
+local ok = -1
+local t = 0
+local px,py = 0,0
+local posx,posy = 0,0
+local n = 0
+local ap,ab = nil,false
+local obj2 = nil
+
+-- internal 1.4.6 Touchscreen
+if (_event.name == "monitor_touch_system") then
+	-- Gib ein Touch Befehl mit globalen Koordinaten an.
+	-- Und ein speziellen Touch Befehl nur für das Fenster ...
+	for i,obj in ipairs(mView.main.mon) do
+		if obj.m:conToSide(_event.params[1]) then
+			ok = i
+			end
+		end
+		
+	for i = 1,windows.GetWindowCount() do
+		t = windows.GetWindow(i)
+		if t:ChangeMonitor(mView.main,true) then
+			obj2 = t
+			end
+		end
+	
+	pcall(secondFlush) -- to clear the screen!
+		
+	if ok > -1 then
+		obj = mView.main.mon[ok]
+		posx,posy = obj:LocaltoGlobal(_event.params[2] ,_event.params[3] )
+		if obj2 then 
+			obj2.left = posx - math.floor(obj2.width / 2)
+			obj2.top = posy - math.floor(obj2.height / 2)
+			if obj2.left < 1 then obj2.left = 1 end
+			if obj2.top < 1 then obj2.top = 1 end
+			end
+		end
+	end	
+if (_event.name == "mouse_click_system") then
+	-- Gib ein Touch Befehl mit globalen Koordinaten an.
+	-- Und ein speziellen Touch Befehl nur für das Fenster ...
+	i,ok = mView.main:HasPeripheral(mperipheral.TermPeripheral)
+	
+	if not i then -- if term is no part of main!
+		-- Put Active Window in second monitor
+		obj = windows.GetActive()
+		for i = 1,windows.GetWindowCount() do
+			t = windows.GetWindow(i)
+			if t == obj then
+			    ab = t:ChangeMonitor(mView.second,true)
+				else
+				t:ChangeMonitor(mView.main,true)
+				end
+			end
+		if obj and ab then 
+			obj:FullScreen(true)
+			end
+		else
+		for i = 1,windows.GetWindowCount() do
+			t = windows.GetWindow(i)
+			t.Monitor = mView.main
+			end
+		end
+	windows.Invalidate()
+	end	
+if (_event.name == "key_system") then 
+	mon = windows.GetActive()
+	if (_event.params[1] == 199) or (_event.params[1] == 157) then		
+		windows.ChangeWindow(true)
+		x = windows.GetActive()
+		if x then
+			x.selobj = nil
+			end
+		end
+	if (mon ~= nil) and (mon:Selected(true)) then
+		if (_event.params[1] == 62) and (mon.task) then
+			mon.task:Stop()
+			else
+			if (mon.Monitor ~= mView.second) then 
+				mon:PressKey( _event.params[1])
+				end
+			end
+		end
+		
+	windows.Invalidate()
+	end
+if (_event.name == "mouse") then 
+	n = windows.GetWindowatPos(_event.params[2],_event.params[3])
+	if #n > 0 then
+		obj = n[#n] 
+		if (_event.params[2] == obj.left+obj.width) and (_event.params[3] == obj.top) then
+			local n2 = windows.WindowsofTask(obj.task)
+			windows.DestroyWindow(obj)
+			if (n2 == 1) then
+			   obj.task:Stop() 
+			   end
+			elseif (_event.params[2] == obj.left+obj.width-2) and (_event.params[3] == obj.top) then
+				obj:FullScreen(true)
+				else
+				windows.SetActive(obj)
+				windows.uptop(obj)
+				end
+		end
+	end
+	
+local function WThrowEvent(name,_obj)
+if _obj.task then
+	local new = events.CreateEvent(name,"driver_windows",_obj)
+	mTask.RaiseHandleEvent(_obj.task,new)
+	end
+end
+
+if (_event.name == "drag") and (_event.params[6] ~= mView.second) then
+	n = windows.GetWindowatPos(_event.params[1],_event.params[2],nil,_event.params[6] or mView.main) -- von
+	if #n > 0 then
+		local rx,ry = 0
+		obj = n[#n] 
+		rx = _event.params[3] - _event.params[1]
+		ry = _event.params[4] - _event.params[2]
+		-- move
+		if (_event.params[2] == obj.top) then
+			obj:move(rx,ry)
+			WThrowEvent("window_move",obj)
+			elseif (_event.params[1] == obj.left) and (obj.width - rx > 5) then -- resize left
+				obj:move(rx,0)
+				obj.width = obj.width - rx
+				WThrowEvent("window_resize",obj)
+				elseif (_event.params[1] == obj:right()) and (obj.width + rx > 5) then -- resize right
+					obj.width = obj.width + rx
+					WThrowEvent("window_resize",obj)
+					elseif (_event.params[2] == obj:bottom()) and (obj.height + ry > 5) then -- resize right
+						obj.height = obj.height + ry
+						WThrowEvent("window_resize",obj)
+						end
+		
+		end
+	end
+end
+
+function Driver_Initial()
+end

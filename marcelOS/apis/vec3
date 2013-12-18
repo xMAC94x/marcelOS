@@ -1,0 +1,270 @@
+-- marcelOS functions
+-- Table functions
+
+boot.BootMsg("starting vec3")
+
+TList = classapi.class(nil,"TList") 
+
+function TList:__init(_mode)
+	self.mode = _mode or 1 -- "1/data" = only Data Matters, order is not important "2/stack" don't change order ! , "3/queue" = data in at lowest pos
+end
+
+function TList:Add(_obj)
+if (self.mode == 1) or (self.mode == 2) then
+	self[#self+1] = _obj
+	elseif self.mode == 3 then
+		self:Insert(_obj,1)
+		end
+return _obj,#self
+end
+
+function TList:AddOnce(_obj) -- Adds a Item if it doesn't exitst in List ! otherwhise return current
+local pos = self:IndexOf(_obj)
+if pos > -1 then
+	return self[pos], pos
+	else
+	self:Add(_obj)
+	end
+end
+
+function TList:Del(_i)
+if (self.mode == 1) then
+	self[_i] = self[#self]
+	self[#self] = nil
+	elseif (self.mode == 2) or (self.mode == 3) then
+		self:MoveDown(_i)
+		end
+end
+
+function TList:MoveUp(_from)
+local i = 0
+for i = #self,_from,-1 do
+	self[i+1] = self[i]
+	end
+end
+
+function TList:MoveDown(_from)
+local i = 0
+for i = _from,#self do
+	self[i] = self[i+1]
+	end
+end
+
+function TList:Insert(_obj,_pos)
+self:MoveUp(_pos)
+self[_pos] = _obj
+return _obj
+end
+
+function TList:IndexOf(_obj)
+local i = 0
+for i = 1,#self do
+	if self[i] == _obj then
+		return i
+		end
+	end
+return -1
+end
+
+function TList:Inc(_obj)
+local x = _obj
+if type(_obj) ~= "number" then
+	x = self:IndexOf(_obj)
+	end
+if x < 1 then
+	if (self.mode == 1) or (self.mode == 2) then
+		x = 1
+		elseif (self.mode == 3) then
+			x = #self
+			end
+	return self[x]	
+	end
+x = x + 1
+if x > #self then x = 1 end
+return self[x] , x
+end
+
+function TList:Dec(_obj)
+local x = _obj
+if type(_obj) ~= "number" then
+	x = self:IndexOf(_obj)
+	end
+if x < 1 then
+	if (self.mode == 1) or (self.mode == 2) then
+		x = 1
+		elseif (self.mode == 3) then
+			x = #self
+			end
+	return self[x]
+	end
+x = x - 1
+if x < 1 then x = #self end
+return self[x] ,x 
+end
+
+TBox = classapi.class(nil,"TBox")
+
+function TBox:__init(_pos)
+	if _pos then
+		self[1] = _pos[1] or 0 --left
+		self[2] = _pos[2] or 0 --top
+		self[3] = _pos[3] or 0 --right
+		self[4] = _pos[4] or 0 --bottom
+		else
+		self[1] = 0 --left
+		self[2] = 0 --top
+		self[3] = 0 --right
+		self[4] = 0 --bottom
+		end
+end
+ 
+function TBox:TopLeft(_pos)
+if _pos then
+	self[1] = _pos[1] or self[1] --left
+	self[2] = _pos[2] or self[1] --top
+	end
+return {self[1],self[2]}
+end
+
+function TBox:BottomRight(_pos)
+if _pos then
+	self[3] = _pos[1] or self[3] --left
+	self[4] = _pos[2] or self[4] --top
+	end
+return {self[3],self[4]}
+end
+
+function TBox:Size()
+	return {self[3]-self[1]+1,self[4]-self[2]+1}
+end
+
+function TBox:Clear()
+self[1] = 0
+self[2] = 0
+self[3] = 0
+self[4] = 0
+end
+
+function TBox:SetPos(_pos)
+self[1] = _pos[1] or 0 --left
+self[2] = _pos[2] or 0 --top
+self[3] = _pos[3] or 0 --right
+self[4] = _pos[4] or 0 --bottom
+end
+
+function TBox:Inside(_x,_y)
+return (_x >= self[1]) and (_x <= self[3]) and (_y >= self[2]) and (_y <= self[4])
+end
+
+function TBox:InString()
+local result = "( " .. tostring(self[1]) .. " " .. tostring(self[2]) .. " " .. tostring(self[3]) .. " " .. tostring(self[4]) .. " )" 
+return result
+end
+
+function round(num, idp)
+  local mult = 10^(idp or 0)
+  return math.floor(num * mult + 0.5) / mult
+end
+
+function PrintVec(_a)
+local result = ""
+local i = 0
+for i in ipairs(_a) do 
+	result = result .. tostring(i) .. ": " .. tostring( _a[i] ) .. "   "
+	end
+return result
+end
+
+function contains(_a , _b)
+local i,obj = 0,nil
+for i,obj in ipairs(_a) do
+	if obj == _b then
+		return true , i
+		end
+	end
+return false, -1
+end
+
+function AddCon(_a , _b)
+local a,b = contains(_a , _b)
+if not a then
+	_a[#_a+1] = _b
+	end
+end
+
+function insertPos(_a, _b, _c)
+local i,obj = 0,nil
+for i = #_a,_c,-1 do
+	_a[i+1] = _a[i]
+	end
+_a[_c] = _b
+end
+
+function insertVec(_a , _b)
+local result = _a
+local i,obj = 0,nil
+for i,obj in ipairs(_b) do
+	local a = contains(result,obj)
+	if not a then
+		result[#result+1] = obj
+		end
+	end
+return result
+end
+
+function Nil( _a )
+local result = {}
+for i in ipairs(_a) do result[i] = 0 end
+return result
+end 
+
+function Copy( _a )
+local result = {}
+local i,obj = 0,nil
+for i,obj in pairs(_a) do
+	result[i] = obj
+	end
+return result
+end
+
+function Add( _a , _b)
+local result = {}
+local i = 0
+for i in ipairs(_a) do  result[i] = _a[i] + _b[i] end
+return result
+end
+
+function Dec( _a , _b)
+local result = {}
+local i = 0
+for i in ipairs(_a) do result[i] = _a[i] - _b[i] end
+return result
+end
+
+function Mult( _a , _b)
+local result = 0
+local i = 0
+for i in ipairs(_a) do result = result + _a[i] * _b[i] end
+return result
+end
+
+function MultInt( _a , _b)
+local result = {}
+local i = 0
+for i in ipairs(_a) do result[i] = _a[i] * _b end
+return result
+end
+
+function MultVec( _a , _b)
+local result = {}
+local i = 0
+for i in ipairs(_a) do result[i] = _a[i] * _b[i] end
+return result
+end
+
+function Div( _a , _b)
+local result = {}
+local i = 0
+for i in ipairs(_a) do result[i] = _a[i] / _b[i] end
+return result
+end

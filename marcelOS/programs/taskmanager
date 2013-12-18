@@ -1,0 +1,145 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|taskmanager>version<1|0.1>changePrint<2|false>IdleCount<1|30>>>other<info<0||name<0|taskmanager>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.useevents = true
+Application.window = windows.CreateWindow( Application.name , Application , true)
+Application.window:SetSize(45,20)
+Application.window:FindSpace(111)
+local lastrun = 0
+local frames = 0
+local timeout = 1
+local selected = nil
+
+local Eintrag = vec3.TList()
+local TEintrag_Taskmgr = classapi.class(nil,"TEintrag_Taskmgr")
+
+function TEintrag_Taskmgr:__init()
+	self.name = ""
+	self.pfad = ""
+	if _tiefe then
+		self.tiefe = _tiefe
+		else
+		--Berechnen
+		end
+	self.pos = _pos
+	self.last = -1
+	self.alive = true
+	self.prg = nil
+	self.selected = false
+	Eintrag[#Eintrag+1] = self
+end
+
+local function NewEintrag(_pfad , _tabelle , _pos , _selected,_tiefe)
+local new = TEintrag_Taskmgr(_pfad , _tabelle , _pos , _selected,_tiefe)
+return new
+end
+
+
+local function Show()
+local i = 1
+local i2,c,p = 1,nil
+local obj,obj2 = mTask.GetProgram(i)
+local totalCPU = 0
+local acol = colors.white
+while obj do
+    totalCPU = totalCPU + obj.lastruntime 
+	i = i + 1
+	obj,obj2 = mTask.GetProgram(i)
+	end
+if lastrun + timeout >= os.clock() then
+	frames = frames + 1
+	else
+	local n = frames/(os.clock()-lastrun)
+	Application.window.name = tostring(math.floor((1-(n/20))*1000)/10) .. "%      " .. tostring(math.floor(n*100)/100) .. " /sec"
+	lastrun = os.clock()
+	frames = 0
+	end
+
+Application.window.l:clear()
+Application.window:writePos(1,1,"name")
+Application.window:writePos(20,1,"idle")
+Application.window:writePos(28,1,"CPU")
+Application.window:writePos(36,1,"%")
+for i2,p in ipairs(Eintrag) do
+	p.alive = false --test here
+	end
+i = 1
+local obj,obj2 = mTask.GetProgram(i)
+while obj do
+	i2 = 1
+	c = nil
+	for i2,p in ipairs(Eintrag) do
+		if p.name == obj.name then
+			c = p
+			break
+			end
+		end
+	if not c then
+		c = TEintrag_Taskmgr()
+		Eintrag:Add(c)
+		c.name = obj.name
+		end
+	c.pos = i*2+1
+	c.prg = obj
+	c.last = obj.lastrun
+	c.alive = true
+	if c.selected then
+	   acol = colors.blue
+	   else
+	   acol = colors.white
+	   end
+	Application.window:writePos(1,i*2+1,obj.name,acol)
+	Application.window:writePos(20,i*2+1,tostring(os.clock()-obj.lastrun))
+    Application.window:writePos(28,i*2+1,tostring(obj.lastruntime))
+	if totalCPU > 0.1 then
+	   Application.window:writePos(36,i*2+1,tostring(math.floor(obj.lastruntime/totalCPU*100)))
+	   else
+	   Application.window:writePos(36,i*2+1,"0")
+	   end
+	
+	i = i + 1
+	obj,obj2 = mTask.GetProgram(i)
+	end
+for i2 = #Eintrag,1,-1 do
+	p = Eintrag[i2]
+	if not p.alive then
+		Eintrag:Del(i2)
+		end
+	end
+--Application.window:Paint()
+end
+
+local function EintragOfPos(_x,_y)
+local i,obj = 0
+for i,obj in ipairs(Eintrag) do
+	if (obj.pos == _y) then
+		selected = obj
+		break
+		end
+	end
+for i,obj in ipairs(Eintrag) do
+	obj.selected = (obj == selected)
+	end
+end
+
+local function getEvent(_event)
+Application.window:Event(_event)
+if (_event.name == "mouse_window") then
+	EintragOfPos(_event.params[2],_event.params[3])
+	end
+end
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+Show()
+while true do
+	Show()
+	EventHandle()
+	Application.window:Paint()
+	sleep(0)
+	end

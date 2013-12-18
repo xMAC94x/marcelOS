@@ -1,0 +1,563 @@
+--[[
+
+Style
+values = lower case. small length  "astr" "i" "testdir"
+Function names = CamelCase. medium length "GetValue" "SetToNil" "SValuesS"
+const = upper case. underscores . large length "HELLO_VALUE_NUMBER" "EXPERIMENTAL_FAKTOR"
+
+]]
+
+
+--mTask is my kernel. The Task is to run multiple Programs at the same time
+boot.BootMsg("starting mTask")
+local task = {} -- SU Task everything important ist here
+TTask = classapi.class(nil,"TTask")
+TGTask = classapi.class(nil,"TGTask")  -- Gerneral / Global Task unimportant stuff 
+local lastsleep =  os.clock() -- it checls when the last sleep was to protect this program from beeing stopped by terminal xD
+local tEnv = {
+["mTask"] = mTask,
+["shell"] = shell,
+["term"] = term
+}
+local verwaltungTask = nil
+local runningtask = nil
+local acount = 0
+local lastactivity = 0
+local rootEvents = {} -- All Events that must run as ROOT !!!
+
+function TGTask:__init(_name)
+	self.name = _name
+	self.su = false
+	self.file = ""
+	self.args = vec3.TList(2)
+	self.freeze = -1
+	self.freezeUntilEvent = false
+	self.lastrun = -1 -- end of running
+	self.startrun = -1 -- beginning of running
+	self.lastruntime = -1
+	self.events = {} -- Events will be pushed in this Array... User must Empty this !!!
+	self.useevents = false -- Aktivates Alle Events
+	self.eventfilter = vec3.TList()
+end
+
+function TTask:__init(_name)
+	self.g = TGTask(_name)
+	self.started = false
+	self.rt_fak = 20 -- if realtime then every second, else every 1st line
+	self.rt_last = -1
+	self.co = nil
+	task[#task+1] = self
+end
+
+-- Intern
+
+local function FindTask( _gtask )
+local i,obj = 0
+if _gtask ~= nil then
+	for i, obj in ipairs(task) do
+		if (obj.g == _gtask) then 
+			return obj, i 
+			end
+		end
+	end
+return nil , -1
+end
+
+function isSu()
+return ((runningtask == nil) or (runningtask.su))
+end
+
+function RunningTask( _sudo)
+if _sudo and isSu() then
+   return runningtask
+   else
+   if runningtask then
+	  return runningtask.g --gib nicht den original  Task zurück! 
+	  else
+	  return nil
+	  end
+   end
+end
+
+function GetProgram(index)
+if (index > 0) and (index <= #task) then
+	if isSu() then
+		return task[index].g , task[index]
+		else
+		return task[index].g , nil
+		end
+	end
+end
+
+local function Debug(result,msg)
+if not result then
+	if runningtask ~= nil then
+		print("An Error occurred... terminated: " .. runningtask.g.name) 
+		else
+		print("Unknown Error occurred...")
+		end
+	if msg then
+		print("Errorcode: "  .. tostring(msg))
+		end
+	end
+
+end
+
+local function verwaltung()
+if verwaltungTask then
+	local fileok,sPath = verwaltungTask:EditFile(false)
+	local sargs = verwaltungTask.g.args
+	if fileok and (sPath ~= nil) then
+		verwaltungTask.started = true
+		local result,b,c = pcall(os.run, tEnv, sPath, unpack(sargs))
+		-- result is true if all is ok, on error it's false!
+		Debug(b,c)
+		return result
+		else
+		return false
+		end
+	
+	end
+end
+
+local function sudoVerwaltung()
+if verwaltungTask then
+	local fileok,sPath = verwaltungTask:EditFile(true)
+	local sargs = verwaltungTask.g.args
+	if fileok and (sPath ~= nil) then
+	    verwaltungTask.started = true
+		local result,b,c = pcall(os.run, tEnv, sPath, unpack(sargs))
+		Debug(b,c)
+		return result
+		else
+		return false
+		end
+	
+	end
+end
+
+
+
+local function KernalPanic(errormsg)
+if not errormsg then errormsg = "'no error msg'" end 
+local mx,my = term.getSize()
+local x,y = 0,0
+term.clear()
+os.sleep(0)
+local continuetime = os.clock() + 30
+
+-- data
+term.setCursorPos(4, 3) 
+term.write("KERNEL PANIC ! ") 
+term.setCursorPos(4, 5)
+term.write("an Error occured in marcelOS")
+term.setCursorPos(4, 6)
+term.write("marcelOS will continue running in 30 sec ")
+term.setCursorPos(3, my-2)
+term.write("[Enter] = continue          [R] = reboot")
+if term.isColor() then
+	term.setTextColor(colors.cyan)
+	end
+local i2 = 10
+while string.len(errormsg) > 0 do
+	term.setCursorPos(3, i2)
+	term.write(string.sub(errormsg,1,mx - 4))
+	errormsg = string.sub(errormsg,mx - 3,string.len(errormsg))
+	i2 = i2 + 1
+	end
+
+-- border
+if term.isColor() then
+	term.setTextColor(colors.red)
+	end
+local astr = string.rep("X",mx)
+local bstr = ""
+
+term.setCursorPos(1, 1) 
+term.write(astr) 
+term.setCursorPos(1, my) 
+term.write(astr) 
+
+for y = 1,my do 
+	term.setCursorPos(1, y)  
+	term.write("X") 
+	term.setCursorPos(mx, y)  
+	term.write("X") 
+	end
+	
+if term.isColor() then
+	term.setTextColor(colors.white)
+	end
+	
+while os.clock() < continuetime do
+	bstr = tostring(math.floor(continuetime - os.clock()))
+	term.setCursorPos(4, 6)
+	term.write("marcelOS will continue running in " .. bstr .. " sec  ")
+
+	local timer = os.startTimer( 0.5 )
+	local _event, p1, p2, p3, p4, p5 = os.pullEvent()
+	while ((_event ~= "timer") or (p1 ~= timer)) do
+		if (_event == "key") then
+			if (p1 == 28) then
+			    term.setCursorPos(1, my)  
+				return
+				end
+			if (p1 == 19) then
+				os.reboot()
+				end
+			end
+		_event, p1, p2, p3, p4, p5 = os.pullEvent()
+		end
+	end
+term.setCursorPos(1, my) 
+end
+
+local function SaveRun(func,...)
+local x = {pcall(func,...)}
+if x[1] then
+	-- ok
+	return unpack(x,2)
+	else
+	KernalPanic(tostring(x[2] or ""))
+	end
+end
+
+
+
+-- RUN Function Official
+function TGTask:run()
+if self.file then
+	boot.BootMsg("prg  " .. self.file)
+	boot.BootMsg("arg  " .. mStrings.TabletoStr(self.args," "))
+	verwaltungTask = FindTask(self)
+	if verwaltungTask then
+		local acur = runningtask
+		runningtask = verwaltungTask
+		verwaltungTask.co = coroutine.create(verwaltung)
+		coroutine.resume(verwaltungTask.co) 
+		runningtask = acur
+		end
+	verwaltungTask = nil
+	end
+end
+
+function TTask:sudoRun() --Curently
+if self.g.file then
+	boot.BootMsg("sudo-prg  " ..self.g.file)
+	boot.BootMsg("sudo-arg  " .. mStrings.TabletoStr(self.g.args," "))
+	self.su = true
+	verwaltungTask = self
+	if verwaltungTask and isSu() then 
+	    local acur = runningtask
+		runningtask = verwaltungTask  
+		verwaltungTask.co = coroutine.create(sudoVerwaltung)
+		coroutine.resume(verwaltungTask.co) 
+		runningtask = acur
+		end
+	verwaltungTask = nil
+	end
+end
+
+function TGTask:Stop()
+local m = FindTask(self)
+if (m) and ((not m.su) or (m.su and isSu())) then
+	print("KILL")
+	-- either a normal function or a su function, which is killed by another su function :)
+	m.co = nil
+	windows.DestroyTaskWindow(self) 
+	end
+end
+
+function TGTask:ValidEvent(event)
+if (self.useevents) then
+	return true
+	else
+	local p = self.eventfilter:IndexOf(event.name)
+	return (p > -1)
+	end
+end
+
+function TGTask:WaitForEvent(filter)
+local ok = true
+while ok do
+	local puf = self:CheckForEvent(filter)
+	if puf then
+		ok = false
+		return puf.name , unpack(puf.params)
+		else
+		Application.eventfilter:AddOnce(filter) -- be sure that it's there if it doesn't fire...
+		sleepEvent(self,10)
+		end
+	end
+end
+
+function TGTask:CheckForEvent(filter)
+-- This functions is for Compatibile Native Programs
+local i,obj = 0 
+local puf = nil
+local last = 0
+for i, obj in ipairs(self.events) do 
+	last = i
+	if ((not filter) or (obj.name == filter)) then
+		puf = self.events[i]
+		self.events[i] = nil 
+		break
+		end
+	self.events[i] = nil 
+	end	
+for i = last+1,#self.events	do
+	self.events[i-last] = self.events[i]
+	self.events[i] = nil
+	end
+return puf	
+end
+
+function TGTask:DoRead()
+local sLine = ""
+local nPos = 0
+	while true do
+		local sEvent, param = self:WaitForEvent()
+		if sEvent == "char" then
+			sLine = string.sub( sLine, 1, nPos ) .. param .. string.sub( sLine, nPos + 1 )
+			nPos = nPos + 1
+			
+		elseif sEvent == "key" then
+		    if param == keys.enter then
+				-- Enter
+				break
+				
+			elseif param == keys.left then
+				-- Left
+				if nPos > 0 then
+					nPos = nPos - 1
+				end
+				
+			elseif param == keys.right then
+				-- Right				
+				if nPos < string.len(sLine) then
+					nPos = nPos + 1
+				end
+			elseif param == keys.backspace then
+				-- Backspace
+				if nPos > 0 then
+					sLine = string.sub( sLine, 1, nPos - 1 ) .. string.sub( sLine, nPos + 1 )
+					nPos = nPos - 1					
+				end
+			elseif param == keys.home then
+				-- Home
+				nPos = 0	
+			elseif param == keys.delete then
+				if nPos < string.len(sLine) then
+					sLine = string.sub( sLine, 1, nPos ) .. string.sub( sLine, nPos + 2 )				
+				end
+			elseif param == keys["end"] then
+				-- End
+				nPos = string.len(sLine)
+			end
+		end
+	end
+return sLine
+end
+
+function TGTask:SaveTimout() -- use if your not sure if you could could cause a timeout in long operations (like ehtf convertions)
+if os.clock() - self.startrun > 2 then
+	Idle()
+	end
+end
+
+-- Intern Functions  
+
+function TTask:EditFile(_sudo)
+local nPath = path.C(path.TEMP(),self.g.file)
+local result = false
+local Data = ""
+if (not _sudo) or (not isSu()) then
+	_sudo = false
+	end
+	
+
+if fs.exists(self.g.file) then
+	local a,Data = pcall(mTaskModify.EditFile,self)
+	if not a then
+		print("COMPILE ERROR!!!")
+		print(Data)
+		print("")
+		end
+	if not fs.exists(nPath) then fs.makeDir(nPath) end 
+	fs.delete(nPath)
+	ehtfutils.StringToFile(nPath,Data)
+	result = true
+	end
+return result, nPath
+end
+
+-- AUTOMATIC FUNCTIONS
+function Idle()
+if runningtask then
+	if runningtask.rt_last >= runningtask.rt_fak-1 then
+		runningtask.rt_last = -1
+		coroutine.yield(runningtask)
+		else
+		runningtask.rt_last = runningtask.rt_last + 1
+		end
+	end
+end
+
+function LastStarted()
+if verwaltungTask then
+	if isSu() then
+	   return verwaltungTask.g , verwaltungTask
+	   else
+	   return verwaltungTask.g --gib nicht den original  Task zurück!
+	   end
+   end
+end
+
+function sleep(_handle, _count )
+if ( _handle ~= nil ) then 
+	_handle.freeze = os.clock() + (_count or 0)
+	_handle.freezeUntilEvent = false
+	coroutine.yield(runningtask)
+	end	
+end
+
+function sleepEvent(_handle , _count )
+if ( _handle ~= nil ) then 
+	_handle.freezeUntilEvent = true
+	_handle.freeze = os.clock() + (_count or 10)
+	coroutine.yield(runningtask)
+	end	
+end
+
+-- USER FUNCTIONS
+function CreateTask(name , _sudo)
+local new = TTask(name or "")
+if _sudo and isSu() then
+   return new.g ,new , #task
+   else
+   return new.g, nil , #task --dont return whole task only global one
+   end
+end
+
+function CurProgramms( _except )
+local result = {}
+for i,v in ipairs(task) do
+	if (v ~= nil) and (v ~= _except) then
+		result[#result+1] = v.g
+		end
+	end
+return result
+end
+
+
+function RaiseHandleEvent ( _handle,_event ) -- to 1 handle
+if _handle:ValidEvent(_event) then 
+	_handle.events[#_handle.events+1] = _event
+	if _handle.freezeUntilEvent then
+		_handle.freeze = -1
+		end
+	end
+end
+
+function RaiseEvent ( _event ) -- all handles
+local i,obj = 0
+for i,obj in ipairs(task) do
+	RaiseHandleEvent(obj.g,_event)
+	end
+end
+
+function RaiseRootEvent ( _event ) -- only drivers !!! if isSU
+if (isSu() or true) and _event then -- ERROR ERROR ERROR ERROR ERROR - SAFTY ERROR, DELETE THE "or true"	
+	rootEvents[#rootEvents+1] = _event
+	end
+end
+
+function RawRaiseEvent ( _event ) -- all drivers and handles
+SaveRun(driver.EventInterpreter, _event )
+if _event and _event.enabled then 
+   RaiseEvent( _event )
+   end
+end
+
+function RunAll()
+local curtime = os.clock()
+local softsleep = false
+local maxsleep = curtime + 10 -- make the pc max sleep 10 seconds :)
+if lastactivity+5 > curtime then -- letzte aktivität kleiner als 10 sek
+	maxsleep = curtime + 5
+	end
+local i = 0
+local obj = nil
+local n = 0
+for i = #task,1,-1 do
+	if (task[i] == nil) or ((task[i].co == nil) and (task[i].started)) or ((task[i].co) and (coroutine.status(task[i].co) == 'dead')) then
+		if (task[i].g ~= nil) then windows.DestroyTaskWindow(task[i].g) end
+		task[i] = task[#task]
+		task[#task] = nil
+		end
+	end
+
+for i, obj in ipairs(task) do
+	if (obj.g.freeze < maxsleep) then 
+		maxsleep = obj.g.freeze 
+		end
+	if (obj.g.freezeUntilEvent) then
+		softsleep = true
+		end
+	end
+	
+if (not softsleep) and (maxsleep-curtime > 2) then 
+	maxsleep = curtime+2
+	end
+if maxsleep >= curtime then
+	mTask.GetEvents(maxsleep-curtime,softsleep)
+	end
+	
+-- Root Events
+for i,obj in ipairs(rootEvents) do
+	SaveRun(driver.EventInterpreter,obj)
+	end
+rootEvents = {}
+	
+-- this takes time! so no curtime but os.clock()
+for i, obj in ipairs(task) do
+	if (os.clock() > obj.g.freeze) and obj.co then 
+		runningtask = obj
+		obj.g.startrun = os.clock()
+		coroutine.resume(obj.co) 
+		obj.g.lastrun = os.clock()
+		obj.g.lastruntime = obj.g.lastrun - obj.g.startrun
+		end
+	end
+runningtask = nil
+SaveRun(windows.mayDraw)
+end
+
+function GetEvents( _atime , _stopatfirstevent)
+local timer = nil
+if _atime then
+	timer = os.startTimer( _atime )
+	end
+local i,obj
+local _event, p1, p2, p3, p4, p5 = os.pullEvent()
+while ((_event ~= "timer") or (p1 ~= timer)) do
+	lastactivity = os.clock()
+	if (_event ~= "timer") then
+	    local myevent = events.CreateEvent(_event , "system" , p1 , p2 , p3 , p4 , p5)
+		--print(myevent:instring())
+		RawRaiseEvent(myevent)
+		end
+	SaveRun(windows.mayDraw)
+	if _stopatfirstevent or (not _atime) then 
+		_event = "timer"
+		p1 = timer
+		else
+		_event, p1, p2, p3, p4, p5 = os.pullEvent()	
+		end
+	end
+end
+
+function API_Initial()
+new = events.CreateEvent("Initialised","mTask", "mTask")
+mTask.RawRaiseEvent(new)
+end

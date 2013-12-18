@@ -1,0 +1,11 @@
+-- Load AUTOSTART
+
+local co = nil
+local tApis = fs.list( path.USERAUTOSTART() )
+
+for n,sFile in ipairs( tApis ) do
+	co = mTask.CreateTask( sFile )
+	co.file = path.USERAUTOSTART() .. "/" .. sFile
+	co.args:Add("userautostart")
+	co:run()
+	end

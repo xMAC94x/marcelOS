@@ -1,0 +1,30 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|execute>version<1|0.1>changePrint<2|false>eventfilter<0|key|char|mouse_click>EventManager<3|true>>>other<info<0||name<0|execute>version<2|0.1>>>>
+Application.window = windows.CreateWindow( "Blub" , Application , true)
+
+local Button1 = winobj.TButton("TButton",Application.window,Application.window)
+Button1.left = 2
+Button1.top = 10
+Button1.width = 30
+Button1.caption = "Redstone Pulse"
+
+function ButtonOnClick()
+rs.setOutput("back",true)
+sleep(1)
+rs.setOutput("back",false)
+end
+
+Button1.onClick = ButtonOnClick
+
+Application.window:RegisterEvents(Application)
+
+function getEvent(_event)
+
+end
+
+while true do
+	Application.window.l:clear()
+	Application.window:Paint()
+	EventHandle()
+	mTask.sleepEvent(Application,1)
+	end

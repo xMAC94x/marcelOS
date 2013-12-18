@@ -1,0 +1,239 @@
+local function FileEnding( _str )
+local x = string.len(_str)
+local ok = false
+local result = ""
+while x > 0 do
+	if string.char(string.byte(_str , x)) == "." then
+		ok = true
+		break
+		end
+	x = x - 1
+	end
+if ok then
+	result = string.sub(_str,x)
+	end
+return result
+end
+
+local function Values( _str , _seperator )
+local _seperator, fields = _seperator or " ", {}
+local pattern = string.format("([^%s]+)", _seperator)
+_str:gsub(pattern, function(c) fields[#fields+1] = c end)
+while #fields > 2 do 
+	fields[#fields-1] = fields[#fields-1] .. fields[#fields]
+	fields[#fields] = nil
+	end
+return fields
+end
+
+local function SelectColor(acolor)
+if term.isColor and term.isColor() then
+	term.setTextColor(acolor or colors.white)
+	end
+end
+
+local MGRUB_PATH = "/MGRUB"
+local OSs = {}
+OSs.__index = OSs
+
+function OSs.create(_file)
+	local acnt = {}
+	setmetatable(acnt,OSs)
+	acnt.name = ""
+	acnt.file = _file
+	acnt.owner = "unknown"
+	acnt.lastboot = 0
+	acnt.bootcount = 0
+	acnt.bootfile = nil
+	acnt.version = "unknown"
+	acnt.checkInstall = nil
+	return acnt
+end
+
+function OSs:GetInfo()
+local file = fs.open(MGRUB_PATH .. "/" .. self.file,"r")
+if file then
+	local  sLine = ""
+	local puffer = {}
+	sLine = file:readLine()
+	while sLine do
+		puffer = Values(sLine, " ")
+		if puffer[1] == "name" then self.name = puffer[2] end
+		if puffer[1] == "owner" then self.owner = puffer[2] end
+		if puffer[1] == "lastboot" then self.lastboot = tonumber(puffer[2]) end
+		if puffer[1] == "bootcount" then self.bootcount = tonumber(puffer[2]) end
+		if puffer[1] == "bootfile" then self.bootfile = puffer[2] end
+		if puffer[1] == "version" then self.version = puffer[2] end
+		if puffer[1] == "checkInstall" then self.checkInstall = puffer[2] end
+		sLine = file:readLine()
+		end
+	file:close()
+	end
+return (file ~= nil)
+end
+
+function OSs:IsInstalled()
+if self.checkInstall and (self.checkInstall ~= "") then
+	return fs.exists(self.checkInstall)
+	end
+return true
+end
+
+function OSs:WriteInfo()
+fs.delete(MGRUB_PATH .. "/" .. self.file)
+local file = fs.open(MGRUB_PATH .. "/" .. self.file,"w")
+file.writeLine("name ".. (self.name or ""))
+file.writeLine("owner ".. (self.owner or ""))
+file.writeLine("lastboot ".. (self.lastboot or ""))
+file.writeLine("bootcount ".. (self.bootcount or ""))
+file.writeLine("bootfile ".. (self.bootfile or ""))
+file.writeLine("version ".. (self.version or ""))
+file.writeLine("checkInstall ".. (self.checkInstall or ""))
+file.close()
+end
+
+function OSs:Boot()
+self.lastboot = os.time()
+self.bootcount = self.bootcount + 1
+self:WriteInfo()
+if self.bootfile ~= nil then
+	if string.char(string.byte(self.bootfile , 1)) == "/" then
+		shell.run(self.bootfile)
+		else
+		shell.run(MGRUB_PATH .. "/" .. self.bootfile)
+		end
+	end
+end
+
+
+
+-- STARTING --
+-- LOADING SETTINGS --
+
+local standart = ""
+local timeout = 10
+local bootsleep = 4
+local current = 0
+local runto = 0
+local MGRUB_VERSION = "0.98.4"
+
+-- Load Boot API -- 
+os.loadAPI(MGRUB_PATH .. "/boot")
+
+boot.BootMsg("MGRUB " .. MGRUB_VERSION .. " - BOOT LOADER")
+local file = fs.open(MGRUB_PATH .. "/settings","r")
+if file then
+	local  sLine = ""
+	local puffer = {}
+	sLine = file:readLine()
+	while sLine do
+		puffer = Values(sLine, " ")
+		if puffer[1] == "standart" then standart = puffer[2] end
+		if puffer[1] == "timeout" then timeout = tonumber(puffer[2]) end
+		if puffer[1] == "bootsleep" then bootsleep = tonumber(puffer[2]) end
+		sLine = file:readLine()
+		end
+		
+	file:close()
+	boot.BootMsg("Loading settings to Boot")
+	boot.BootMsg("standart OS: " .. standart)
+	boot.BootMsg("timeout : " .. timeout)
+	else
+	boot.BootMsg("unable to load settings")
+	boot.BootMsg("please check the '".. MGRUB_PATH .. "/settings' File !" )
+	end
+sleep(bootsleep)
+
+-- CHECK FOR OSs --
+for i,obj in ipairs(fs.list(MGRUB_PATH)) do
+	if FileEnding( obj ) == ".mgrub" then
+		local new = OSs.create(obj)
+		if not new:GetInfo() then
+			boot.BootMsg("Failed to Load OS: " .. obj)
+			else
+			if new:IsInstalled() then
+				OSs[#OSs+1] = new
+				if obj == standart then
+					current = #OSs
+					end
+				end
+			end
+		end
+	end
+
+-- AUSWAHL -- 
+local function Render()
+term.clear()
+term.setCursorPos(1,1)
+print("MGRUB " .. MGRUB_VERSION .. " - BOOT LOADER")
+print("")
+for i,obj in ipairs(OSs) do
+	if i == current then
+		SelectColor(colors.green)
+		print("  > " .. obj.name .. " <  ")
+		SelectColor(colors.white)
+		else
+		print("    " .. obj.name .. "    ")
+		end
+	end
+print("")
+print("")
+local t = math.floor(runto - os.clock())
+if (t < 3) and (term.isColor()) then
+	write("timeout ")
+	SelectColor(colors.red)
+	print(t)
+	SelectColor(colors.white)
+	else
+	print("timeout ".. tostring(t))
+	end
+
+local x,y = term.getSize()
+term.setCursorPos(1,y)
+write("xMAC94x")
+local astr = "GPL2.0 - http://goo.gl/8Axgz"
+term.setCursorPos(x-string.len(astr),y)
+write(astr)
+
+end	
+
+function GetEvents( _atime )
+local timer = os.startTimer( (_atime or 0) )
+local event, p1, p2, p3, p4, p5 = 0
+local i,obj
+while true do
+	event, p1, p2, p3, p4, p5 = os.pullEvent()
+	if ((event == "timer") and (p1 == timer)) then 
+		break 
+	elseif  event == "key" then
+		if (p1 == 17) or (p1 == 200) then 
+			current = current - 1
+			if current < 1 then current = #OSs end
+			runto = os.clock() + timeout + 5
+			end
+		if (p1 == 31) or (p1 == 208) then 
+			current = current + 1
+			if current > #OSs then current = 1 end
+			runto = os.clock() + timeout + 5
+			end
+		if (p1 == 28) then 
+			runto = -1
+			end
+		end
+	end
+end
+
+runto = os.clock() + timeout
+while os.clock() < runto do
+	Render()
+	if current < 1 then
+		runto = os.clock() + timeout + 5
+		end
+	GetEvents(0.05)
+	end
+
+if current > 0 then
+	boot.BootMsg("booting into " .. OSs[current].name)
+	OSs[current]:Boot()
+	end
+	

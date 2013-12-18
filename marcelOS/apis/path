@@ -1,0 +1,99 @@
+boot.BootMsg("starting path")
+local osPath = "marcelOS"
+local apisPath = "apis"
+local dataPath = "data"
+local autorunPath = "autorun"
+local tempPath = "temp"
+local userPath = "user"
+local userautostartPath = "autostart"
+local driverPath = "drivers"
+local programsPath = "programs"
+
+function FOLDER(apath)
+apath = tostring(apath)
+if string.char(string.byte(apath,apath:len())) ~= '/' then
+	return apath.."/"
+	else
+	return apath
+	end
+end
+
+function ROOT(apath)
+apath = tostring(apath)
+if string.char(string.byte(apath)) ~= '/' then
+	return "/"..apath
+	else
+	return apath
+	end
+end
+
+function UNROOT(apath)
+apath = tostring(apath)
+if string.char(string.byte(apath)) ~= '/' then
+	return apath
+	else
+	return apath:sub(2)
+	end
+end
+
+function C(astr,bstr,...) -- Combined Both to a Valid Path with nether / at beginning nor at End
+astr = UNROOT(astr)
+astr = FOLDER(astr)
+local result = ""
+if string.char(string.byte(bstr)) == '/' then
+	bstr = string.sub(bstr,2,string.len(bstr))
+	end
+if string.char(string.byte(bstr,bstr:len())) == '/' then
+	bstr = string.sub(bstr,1,string.len(bstr)-1)
+	end
+result = astr .. bstr
+local add = {...}
+local i,obj = 0,nil
+for i,obj in ipairs(add) do
+	result = C(result,obj)
+	end
+if (result ~= "/") and (string.char(string.byte(result,result:len())) == '/') then -- be sure that it doesnt end with / . except "/"
+	result = string.sub(result,1,string.len(result)-1)
+	end
+return result
+end
+
+function CR(astr,bstr,...) -- Combined Both to a Valid Path with / at beginning but none at End
+return ROOT(C(astr,bstr,...))
+end
+
+function OS()
+return ROOT(osPath)
+end
+
+function APIS()
+return ROOT(fs.combine(osPath,apisPath))
+end
+
+function DATA()
+return ROOT(fs.combine(osPath,dataPath))
+end
+
+function AUTORUN()
+return ROOT(fs.combine(osPath,autorunPath))
+end
+
+function USER()
+return ROOT(userPath)
+end
+
+function DRIVERS()
+return ROOT(fs.combine(osPath,driverPath))
+end
+
+function TEMP()
+return ROOT(fs.combine(osPath,tempPath))
+end
+
+function PROGRAMS()
+return ROOT(fs.combine(osPath,programsPath))
+end
+
+function USERAUTOSTART()
+return ROOT(fs.combine(userPath,userautostartPath))
+end

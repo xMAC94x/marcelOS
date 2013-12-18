@@ -1,0 +1,264 @@
+-- marcelOS functions
+local pos = {0,64,0}
+local richtung = {1,0,0}
+
+boot.BootMsg("starting lps")
+
+function InvStacks()
+local i = 0
+local result = 0
+for i = 1,9 do
+	if turtle.getItemCount( i ) == 0 then result = result + 1 end 
+	end
+return result
+end
+
+function Reset(_pos , _richtung)
+local i = 0
+if _pos then
+	for i in ipairs(pos) do pos[i] = _pos[i]end
+	end
+if _richtung then
+	for i in ipairs(richtung) do richtung[i] = _richtung[i] end
+	end
+boot.BootMsg(ShowPos())
+end
+
+function ShowPos()
+return "Pos: " .. pos[1] .. " " .. pos[2] .. " " .. pos[3] .. " Richtung: " .. richtung[1] .. " " .. richtung[2] .. " " .. richtung[3]
+end
+
+local function geh()
+local i = 0
+pos = vec3.ADD(pos,richtung)
+end
+
+function dRechts()
+local a,b = 0
+a = richtung[1]
+b = richtung[3]
+richtung[1] = -b
+richtung[3] = a
+turtle.turnRight()
+end
+
+function dLinks()
+local a,b = 0
+a = richtung[1]
+b = richtung[3]
+richtung[1] = b
+richtung[3] = -a
+turtle.turnLeft()
+end
+
+function Vec( _vec )
+return {tonumber(_vec[1]),tonumber(_vec[2]),tonumber(_vec[3])}
+end
+
+function CorDreh( _richtung )
+local i = 1
+for i = 1,3 do
+	if tonumber(_richtung[i]) > 1 then _richtung[i]  = 1 end
+	if tonumber(_richtung[i]) < -1 then _richtung[i]  = -1 end
+	end
+if (tonumber(_richtung[1]) == 0) and (tonumber(_richtung[3]) == 0) then _richtung[1] = 1 end
+return Vec(_richtung)
+end
+
+function Dreheauf(_richtung)
+if ((-richtung[1] == _richtung[3]) and (richtung[3] == _richtung[1])) then dLinks() end
+while ((richtung[1] ~= _richtung[1]) or (richtung[3] ~= _richtung[3])) do dRechts() end
+end
+
+function Fplus( _max )
+local i = 0
+if not _max then
+	local _max = 100
+	end
+	
+while not turtle.forward() do
+	i = i + 1
+	if (i>_max) then return false end
+	turtle.dig()
+	end
+geh()
+return true
+end
+
+function FUpplus( _max )
+local i = 0
+if not _max then
+	local _max = 100
+	end
+while not turtle.up() do
+	i = i + 1
+	if (i>_max) then return false end
+	turtle.digUp()
+	end
+pos[2] = pos[2] + 1
+return true
+end
+
+
+function FDownplus( _max )
+local i = 0
+if not _max then
+	local _max = 100
+	end
+while not turtle.down() do
+	i = i + 1
+	if (i>_max) then return false end
+	turtle.digDown()
+	end
+pos[2] = pos[2] - 1
+return true
+end
+
+function GOXZ( _length , _max)
+for i = 1,_length do 
+	if (not Fplus(_max)) then break end 
+	end
+end
+
+function GOX( _length , _max)
+if _length > 0 then
+	Dreheauf({1,0,0})
+	else
+	Dreheauf({-1,0,0})
+	_length = - _length
+	end
+GOXZ(_length , _max)
+end
+
+function GOZ( _length , _max)
+if _length > 0 then
+	Dreheauf({0,0,1})
+	else
+	Dreheauf({0,0,-1})
+	_length = - _length
+	end
+GOXZ(_length , _max)
+end
+
+function GOY( _length , _max)
+if _length > 0 then
+	for i = 1,_length do 
+		if (not FUpplus(_max)) then break end 
+		end
+	else
+	_length = - _length
+	for i = 1,_length do 
+		if (not FDownplus(_max)) then break end 
+		end
+	end
+end
+
+function TurtleGO(_str)
+local i = 0
+local c = {}
+
+local fak = 0
+local mult =0 
+--for a in string.gmatch(_str, "%w+") do c[#c+1] = string.lower(a) print(a) end
+c = mStrings.split(_str , " ")
+for i in ipairs(c) do 
+	c[i] = string.lower(c[i])
+	end
+
+if (c[2] ~= "d") then fak = 0 end
+if (c[2] == "g") then fak = 100 end
+if (c[3] == nil) then c[3] = c[2] end
+mult = (tonumber(c[3]) or 1)
+
+boot.BootMsg("")
+for i in ipairs(c) do 
+	boot.BootMsg(c[i]) 
+	end
+
+
+if c[1] == "f" then
+	boot.BootMsg("GETTA")
+	if (c[2] == "d") then 
+		turtle.dig()
+    	else
+		GOXZ(mult , fak)
+		end
+elseif c[1] == "b" then
+	dRechts()
+	dRechts()
+	if (c[2] == "d") then 
+		turtle.dig()
+    	else
+		GOXZ(mult , fak)
+		end
+elseif c[1] == "x" then
+	GOX( mult , fak)
+elseif c[1] == "y" then
+	GOY( mult , fak)
+elseif c[1] == "z" then
+	GOZ( mult , fak)
+elseif c[1] == "l" then
+	for i = 1,mult do dLinks() end
+elseif c[1] == "r" then
+	for i = 1,mult do dRechts() end
+elseif c[1] == "u" then
+	if (c[2] == "d") then 
+		turtle.digUp()
+    	else
+		for i = 1,mult do FUpplus(fak) end
+		end
+elseif c[1] == "d" then
+	if (c[2] == "d") then 
+		turtle.digDown()
+    	else
+		for i = 1,mult do FDownplus(fak) end
+		end
+elseif c[1] == "dr" then
+	Dreheauf(CorDreh({c[2],0,c[3]}))
+elseif c[1] == "m" then
+	Move(Vec({c[2],c[3],c[4]}),CorDreh({c[5],c[6],c[7]}),100)
+elseif c[1] == "mt" then
+	MoveTo(Vec({c[2],c[3],c[4]}),CorDreh({c[5],c[6],c[7]}),100)
+elseif c[1] == "reset" then
+	Reset(Vec({c[2],c[3],c[4]}),CorDreh({c[5],c[6],c[7]}))
+	end
+end
+
+function Move(_pos , _fak)
+GOX(_pos[1] , _fak)
+GOY(_pos[2] , _fak)
+GOZ(_pos[3] , _fak)
+end
+
+function MoveR(_pos , _richtung , _fak)
+Move(_pos , _fak)
+Dreheauf(_richtung)
+end
+
+function MoveTo(_pos , _fak)
+GOX(_pos[1]-pos[1] , _fak)
+GOY(_pos[2]-pos[2] , _fak)
+GOZ(_pos[3]-pos[3] , _fak)
+end
+
+function MoveToR(_pos , _richtung , _fak)
+MoveTo(_pos , _fak)
+Dreheauf(_richtung)
+end
+
+function API_Initial()
+local file = fs.open(path.C(path.DATA(),"lps/pos"),"r")
+local sLine = file:readLine()
+if sLine then
+	pos = mStrings.split(sLine," ")
+	end
+sLine = file:readLine()
+if sLine then
+	richtung = mStrings.split(sLine," ")
+	end	
+file:close()
+
+local new = events.CreateEvent("Initialised","lps", "lps")
+mTask.RawRaiseEvent(new)
+end
+

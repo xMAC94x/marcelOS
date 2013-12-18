@@ -1,0 +1,234 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|false>eventfilter<http_success|http_failure>EventManager<3|false>Debug<3|true>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.useevents = true
+local tArgs = {...}
+-- Args 1: Data in EHTF
+-- Args: mode (create / install)
+-- Args: source
+-- Args: dest -optional if install
+-- NEEDED if create:
+-- Args: version
+-- Args: includesha1
+-- Args: name
+
+-- Args 2: Output EHTF
+-- Args: info
+
+
+local conf = ehtf.THTNode()
+local output = tArgs[2]
+local p = nil
+local mode = ""
+local configstring = ""
+local version = ""
+local includesha1 = false
+local name = ""
+local onDone = nil
+
+if type(tArgs[1]) == "table" then
+	conf = tArgs[1]
+	else
+	conf:FromStr(tArgs[1])
+	end
+local source = "/"
+local dest = nil
+
+p = conf:FindAboutC("mode")
+if p then
+	mode = p:SValuesS(1)
+	end	
+p = conf:FindAboutC("source")
+if p then
+	source = p:SValuesS(1)
+	end	
+p = conf:FindAboutC("configstring")
+if p then
+	configstring = p:SValuesS(1)
+	end	
+p = conf:FindAboutC("onDone")
+if p then
+	onDone = p:SValues(1)
+	end
+p = conf:FindAboutC("dest")
+if p then
+	dest = p:SValuesS(1)
+	end
+p = conf:FindAboutC("version")
+if p then
+	version = p:SValuesS(1)
+	end	
+p = conf:FindAboutC("includesha1")
+if p then
+	includesha1 = p:SValuesB(1)
+	end	
+p = conf:FindAboutC("name")
+if p then
+	name = p:SValuesS(1)
+	end
+	
+	
+local function GetData(source)
+Debug(source)
+if source:sub(1,7) == "http://" then
+	http.request(source)
+	Debug("http","get")
+	local e,p1,p2 = Application:WaitForEvent()
+	while ((e ~= "http_success") and (e ~= "http_failure")) or (p1 ~= source) do
+		local e,p1,p2 = Application:WaitForEvent()
+		end
+	if e == "http_success" then
+		local s = p2.readAll()
+		p2.close()
+		return s
+		end
+	else
+	Debug("local","get")
+	return ehtfutils.FileToString(source)
+	end
+Debug("ERROR")
+return ""
+end
+
+local function ExtractData(adata,adest,asource)
+local i,obj = 1,nil
+local p,o,p2,p3,p4 = nil,nil,nil,nil
+local ap = ""
+local apath = ""
+local afile = ""
+local filedata = ""
+local _filedata
+local needupdate = true
+
+p = adata:FindAboutC("path")
+if p then 
+	apath = p:SValuesS(1)
+	fs.makeDir(path.C(adest,apath))
+	end
+o = adata:FindAboutC("sub")
+	
+for i,obj in ipairs(o.nodes) do
+	if obj.about == "folder" then
+		ExtractData(obj,adest,asource)
+		else
+		p2 = obj:FindAboutC("data")
+		if p2 then
+			afile = path.C(asource,p2:SValuesS(1)) 
+			p3 = obj:FindAboutC("path")
+			if p3 then
+				apath = path.C(adest,p3:SValuesS(1))
+				needupdate = true
+				p4 = obj:FindAboutC("sha1")
+				if p4 then
+					_filedata = ehtfutils.FileToString(apath) or ""
+					needupdate = (md5.md5(_filedata) ~= p4:SValuesS(1))
+					end
+				if needupdate then
+				    Debug(apath) 
+					filedata = GetData(afile)
+					
+					ehtfutils.StringToFile(apath,filedata)
+					end
+				end
+			end
+		end
+	end
+end
+
+local function LoadData(anode,mainpath,pretopath,topath,apath,aname,dosha1) --mainpath = SOURCE PATH dont get changed , pretoPath = for Saving, not implemented ! , toPath : Dest Path dont get changed , apath = local PATH --> get changed !!! 
+local i,obj = 1,nil
+local lmainpath = path.C(mainpath,apath)
+local ltopath = path.C(topath,apath)
+local gtopath = path.C(pretopath,topath,apath)
+fs.makeDir(gtopath)
+if apath == '' then
+	local lmainpath = mainpath
+	local ltopath = topath
+	end
+local tData = fs.list( lmainpath )
+local p,o,p2 = nil,nil,nil
+local ap = ""
+local amainp = ""
+local atop = ""
+
+p = anode:Add("folder","")
+p:Add("name",aname)
+p:Add("path",apath)
+o = p:Add("sub","")
+for i,obj in ipairs(tData) do
+	ap = path.C(apath,obj)
+	amainp =  path.C(lmainpath,obj)
+	atop =  path.C(ltopath,obj)
+	atop2 =  path.C(gtopath,obj)
+	if fs.isDir(amainp) then
+		if (amainp ~= "/rom") then -- we dont load rom !
+			LoadData(o,  mainpath ,pretopath, topath ,   ap  ,obj , dosha1)
+			sleep(0.01)
+			end
+		else
+		p2 = o:Add("file","")
+		p2:Add("name",obj)
+		p2:Add("path",ap)
+		
+		local _data = ehtfutils.FileToString(amainp)
+		ehtfutils.StringToFile(atop2,_data)
+		p2:Add("data", atop)
+		if dosha1 then
+			p2:Add("sha1", md5.md5(_data))
+			end
+		end
+	end
+end
+
+
+if mode == "create" then
+	Debug("create")
+	
+	if name == "" then
+		name = source
+		end
+	local meta = ehtf.THTNode()
+	local p = nil
+
+	meta:Add("about","Softwareupdate")
+	meta:Add("name",name)
+	meta:Add("path",source)
+	meta:Add("ver",version)
+	meta:Add("sha1",includesha1)
+	p = meta:Add("data","")
+
+
+	fs.makeDir(dest)
+	LoadData(p,source,dest,'data','','',includesha1)
+
+	meta:SavetoFile(path.FOLDER(dest) .. "config.ehtf")
+	
+	if onDone then
+		onDone(mode,source,name)
+		end
+	Debug("Done")
+	else
+	Debug("install")
+
+	local Data = ehtf.THTNode()
+	if configstring ~= "" then
+		local configstring = GetData(path.C(source,"config.ehtf"))
+		Debug(configstring)
+		else
+		Debug("Config available")
+		end
+		
+	Data:FromStr(configstring)
+	Debug("Loaded Data: " .. configstring)
+	if not dest then
+		dest = Data:FindAboutC("path")
+		dest = dest:SValuesS(1)
+		end
+	if not fs.exists(dest) then
+		fs.makeDir(dest)
+		end
+	ExtractData(Data:FindAboutC("data"):FindAboutC("folder"),dest,source)
+	if onDone then
+		onDone(mode,source,name)
+		end
+	Debug("Done")
+	end

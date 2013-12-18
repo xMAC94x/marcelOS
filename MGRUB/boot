@@ -1,0 +1,39 @@
+-- marcelOS boot functions
+
+bootmsg = {}
+showmsg = true
+savemsg = true
+showtime = true
+bootlastsleep = os.clock() 
+bootSleepvar = 0.1
+local lastsaved = 0
+
+local file = fs.open("/MGRUB/boot.info","w")
+file.writeLine("[0]INITIAL BOOT API")
+file:close()
+
+function BootYield()
+if bootlastsleep + bootSleepvar < os.clock() then
+	bootlastsleep = os.clock()
+	sleep(0.00001) 
+	end
+end
+
+function BootMsg( astr )
+if showtime then
+	astr = "[" .. tostring(os.clock()) .. "]" .. astr
+	end
+bootmsg[#bootmsg + 1] = astr
+if showmsg then 
+	print(astr)
+	end
+if savemsg and (#bootmsg % 5  == 0) then
+	local file = fs.open("/MGRUB/boot.info","a")
+	local i 
+	for i = lastsaved+1,#bootmsg do
+		file.writeLine(bootmsg[i])
+		end
+	lastsaved = #bootmsg
+	file:close()
+	end
+end

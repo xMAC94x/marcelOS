@@ -1,0 +1,80 @@
+local function SelectColor(acolor)
+if term.isColor and term.isColor() then
+	term.setTextColor(acolor or colors.white)
+	end
+end
+
+local function PrintMessage(...)
+local mx,my = term.getSize()
+local x,y = 0,0
+term.clear()
+
+local args = {...}
+local i = 0
+for i = 1,#args do
+	term.setCursorPos(4, 2+i) 
+	term.write(args[i]) 
+	end
+
+-- border
+SelectColor(colors.cyan)
+local astr = string.rep("X",mx)
+local bstr = ""
+
+term.setCursorPos(1, 1) 
+term.write(astr) 
+term.setCursorPos(1, my) 
+term.write(astr) 
+
+for y = 1,my do 
+	term.setCursorPos(1, y)  
+	term.write("X") 
+	term.setCursorPos(mx, y)  
+	term.write("X") 
+	end
+	
+SelectColor(colors.white)
+return #args+3
+end
+
+local free = 1+ PrintMessage("marcelOS installer","------------------","","","Thank you for using marcelOS","This Program will guide you through","the installation.")
+
+SelectColor(colors.red)
+term.setCursorPos(4, 7)
+term.write("Thank you for using marcelOS") 
+sleep(3)
+term.setCursorPos(4, free)
+SelectColor(colors.green)
+term.write("press ENTER...")
+SelectColor(colors.white)
+read() 
+
+free = 1+ PrintMessage("Page 1 of 3","","","This setup will copy all marcelOS ","files to your computer, then the PC will ","reboot and you can use your new OS :)","Keep in mind, that this installer ","MAY overwrite files!")
+sleep(3)
+term.setCursorPos(4, free)
+SelectColor(colors.green)
+print("press ENTER...")
+SelectColor(colors.white)
+read() 
+
+free = 1+ PrintMessage("Page 2 of 3","","","all marcelOS files are licenced ","under the modified GPL 2.0,","read http://www.gnu.org/licenses/gpl-2.0.html!")
+SelectColor(colors.red)
+term.setCursorPos(4, 6)
+term.write("all marcelOS files are licenced ")
+term.setCursorPos(4, 7)
+term.write("under the modified GPL 2.0,")
+sleep(3)
+term.setCursorPos(4, free)
+SelectColor(colors.green)
+term.write("press ENTER...")
+SelectColor(colors.white)
+read() 
+
+
+free = 1+ PrintMessage("Page 3 of 3","","","for additional information, visite my website:","http://marcelmaertens.funpic.de")
+sleep(3)
+term.setCursorPos(4, free)
+SelectColor(colors.green)
+term.write("press ENTER to start Setup...")
+SelectColor(colors.white)
+read() 

@@ -1,0 +1,134 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|explorer>version<1|0.2>changePrint<2|false>eventfilter<0|internet|window_resize|window_fullscreen>EventManager<3|true>Debug<3|true>>code<0|print("Hello, explorer run under marcelOS")>>other<info<0||name<0|explorer>version<2|0.2>>code<0|~i<23>print("Unknown OS ...")>>>
+-- This Program is a Server which will execute Programs send by an other Computer, if this PC has the right Password
+
+Application.window = windows.CreateWindow( Application.name , Application , true)
+Application.window:SetSize(25,6)
+Application.window:FindSpace(111)
+
+Application.window:RegisterEvents(Application)
+
+local Users = {}
+TSSHservice_User = classapi.class(nil,"TSSHservice_User")
+function TSSHservice_User:__init(_name,_pw)
+	self.name = _name
+	self.su = false
+	self.pw = _pw or mStrings.UUID()
+end
+
+local Instances = {}
+TSSHservice_Instance = classapi.class(nil,"TSSHservice_Instance")
+function TSSHservice_Instance:__init(_user,_connected)
+	self.user = _user
+	self.seed = nil
+	self.connected = _connected
+end
+
+function TSSHservice_Instance:sendSeed()
+self.seed = mStrings.UUID()
+--self.seed = tostring(os.clock()) .. mStrings.UUID() .. tostring(os.time())
+local aNode = ehtf.THTNode()
+aNode:Add('seed',self.seed)
+ip.SendMessage(nil, self.connected, nil,22,nil, aNode:ToStr())
+Application.window:print("seed Sended " .. tostring(self.connected))
+end
+
+local function GiveInstance(_ip,_name)
+local i,obj
+for i,obj in ipairs(Instances) do
+	if (obj.connected == _ip) and obj.user and (obj.user.name == _name) then
+		return obj
+		end
+	end
+for i,obj in ipairs(Users) do
+	if (obj.name == _name) then
+		local new = TSSHservice_Instance(obj,_ip)
+		Instances[#Instances+1] = new
+		return new
+		end
+	end
+return nil
+end
+
+local function getEvent(_event)
+if (_event.name == "internet") and (_event.params[4] == "22") then
+	Debug("rev")
+	aNode = ehtf.THTNode()
+	aNode:FromStr(_event.params[6])
+	local command = aNode:Load("command",nil)
+	local hash = aNode:Load("hash",nil)
+	local name = aNode:Load("name",nil)
+	local _sudo = aNode:Load("sudo",false)
+	local requestseed = aNode:Load("requestseed",nil)
+	if requestseed and name then
+		local aobj = GiveInstance(_event.params[2],name)
+		if aobj then
+			aobj.connected = _event.params[2]
+			aobj:sendSeed()
+			end
+		end
+	
+	if command and hash and name then
+		local aobj = GiveInstance(_event.params[2],name)
+		if aobj and aobj.seed and aobj.user and aobj.user.pw then
+			local testhash = md5.md5(command .. aobj.user.pw .. aobj.seed)
+			if testhash == hash then
+				-- VALID
+				
+				local apath = path.C(path.TEMP(),"remoteControl")
+				if (not fs.exists(apath)) then
+					fs.makeDir(apath)
+					end
+				local adata = path.C(apath,mStrings.UUID())
+				while fs.exists(adata) do
+					adata = path.C(apath,mStrings.UUID())
+					end
+				ehtfutils.StringToFile(adata,command)
+				Application.window:print("execute " .. adata)
+				
+				local co,co2 = mTask.CreateTask( adata or "" , true )
+				co.file = adata
+				if _sudo and aobj.user.su then
+					co2:sudoRun()
+					else
+					co:run()
+					end
+				aobj:sendSeed()
+				end
+			end
+		end
+	end
+end
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	Application.window:Event(obj)
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+local aNode = ehtf.THTNode()
+aNode:LoadfromFile(path.C(path.DATA(),"ssh_service","users.ehtf"))
+local i,obj = 0,nil
+for i,obj in ipairs(aNode.nodes) do
+	local _name = obj:Load("name","")
+	local _su = obj:Load("su",false)
+	local _pw = obj:Load("pw","")
+	local new = TSSHservice_User(_name,_pw)
+	if _su == true then
+		new.su = true
+		end
+	Users[#Users+1] = new
+	Debug("ssh", new.pw)
+	Debug("ssh", new.name)
+	end
+
+Debug("ssh", tostring(#Users) .. " profiles active")
+Application.window:print(tostring(#Users) .. " profiles active")
+while true do
+	EventHandle()
+	Application.window:Paint()
+	mTask.sleepEvent(Application,6)
+	end

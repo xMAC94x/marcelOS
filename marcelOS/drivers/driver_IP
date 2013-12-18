@@ -1,0 +1,49 @@
+local function Detect()
+local i,obj = 0
+for i,obj in ipairs(driver.driver_sides) do
+	if peripheral.getType( obj ) == "modem" then
+	   rednet.open(obj)
+	   end
+	end
+end
+
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Initial()
+Detect()
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+local _ClientIP , _ServerIP, _meta , _port, _msg, _result = nil
+local new = nil
+local s,s2,s3 = nil,nil,-1
+
+if (_event.name == "MPeripheral") and (_event.params[2].type == "modem") then
+	if (_event.params[1] == "add") then
+		--_event.params[2].p.open(ip.UsedChannel)
+		rednet.open(_event.params[2].side)
+		end -- Close nicht machbar, weil es dann sowieso schon zu spät ist.
+	end
+
+if _event.name == "rednet_message" then
+	--print(_event:instring())	ok = ip.Legal(_event.params[1])
+	_ClientIP , _ServerIP , _port, _meta , _msg, _result = ip.GetMessage(_event.params[2])
+	s,s2,s3 = ip.OwnIP:GetDHCP_C(_event.params[1])
+	if s2 then
+		s2.entf = _event.params[3]
+		s2.lastping = os.clock()	
+		end
+	if _result then		
+		if ip.DHCPMessage(_ClientIP , _ServerIP ,p1,_port , _meta , _msg, _event.params[3]) then -- internes weiterleiten
+			new = events.CreateEvent("DHCP","driver_IP", _event.params[1], _ClientIP , _ServerIP ,_port )  -- für "3G Watchdog"
+			else
+			new = events.CreateEvent("internet","driver_IP", _event.params[1], _ClientIP , _ServerIP ,_port, _meta , _msg , p3 , ok)
+			end
+		mTask.RawRaiseEvent(new)
+		end
+	_event.enabled = false
+	_event = nil -- Destroy Event !!!
+	end
+end

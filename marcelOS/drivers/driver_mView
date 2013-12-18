@@ -1,0 +1,32 @@
+function Driver_Meta_Version()
+return "0.1"
+end
+
+function Driver_Initial()
+end
+
+function Driver_Event( _event ) -- is called if an Event is fired
+local newe = nil
+local done = ""
+local n = 0
+local x = 0
+local mon = 0
+local obj = 0
+local new = nil
+if (_event.name == "MPeripheral") and (_event.params[2].type == "monitor") then
+	if (_event.params[1] == "add") then
+		mView.main:mPeripheralAdd( _event.params[2] )
+		done = "add"
+		else
+		mView.main:mPeripheralDel( _event.params[2] )
+		done = "del"
+		end
+	mView.main:Change()
+	mView.main:PreRender()
+	mView.main:clear()
+	print("MAIN MONITOR Configured")
+	mView.main:Flush()
+	newe = events.CreateEvent("MonChanged","driver_mView", done, _event.params[2] , _event.params[2].p)
+	mTask.RawRaiseEvent(newe)
+	end
+end

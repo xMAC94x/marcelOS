@@ -1,0 +1,47 @@
+-- marcelOS windows functions
+boot.BootMsg("starting Peripherals")
+
+TermPeripheral = nil
+
+Peripherals = {}
+TPeripheral = classapi.class(nil,"TPeripheral")
+
+function TPeripheral:__init( name )
+	self.name = name
+	self.UUID = mStrings.UUID()
+	self.side = ""
+	self.type = ""
+	self.p = nil
+	self.owner = "system"
+	self.pos = {0,0,0} -- schonmal hinzugefügt !
+	self.size = {1,1,1}
+	Peripherals[#Peripherals+1] = self
+end
+
+function TPeripheral:call(method, ...)
+return p.call(method, ...)
+end
+
+
+function TPeripheral:conToSide(aside)
+local b = (aside == self.side)
+return b
+end
+
+function CreatePeripheral(name)
+local new = TPeripheral(name or "")
+return new
+end
+
+
+function API_Initial()
+new = events.CreateEvent("Initialised","mperipheral", "mperipheral")
+mTask.RawRaiseEvent(new)
+end
+
+TermPeripheral = CreatePeripheral("term")
+TermPeripheral.pos = {0,0,0}
+TermPeripheral.size = {0,0,0}
+TermPeripheral.side = "term"
+TermPeripheral.type = "term"
+TermPeripheral.p = term

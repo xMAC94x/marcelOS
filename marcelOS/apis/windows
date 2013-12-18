@@ -1,0 +1,422 @@
+-- marcelOS windows functions
+boot.BootMsg("starting windows")
+
+local window = vec3.TList()
+TWindow = classapi.class(winobj.TWinObj,"TWindow") 
+local needreDraw = false
+local active = nil
+
+-- DONT USE THIS
+
+function TWindow_Selected(self,strict)
+return (GetActive() == self) and ((not strict) or (self.selobj == nil))
+end
+
+
+function TWindow:__init(_name, _task)
+    self.name = _name or ""
+	self.task = (_task or mTask.RunningTask())
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.margin = 2
+ 	self.l = mView.Tvwindow()
+	self.width = 49
+	self.height = 17
+	self.l:SetSize(self.width,self.height)
+	window[#window+1] = self
+	self.Selected = TWindow_Selected
+	self.Monitor = mView.main -- THIS is the virtuall Monitor where to Render :D
+end
+
+function TWindow:contains(x,y)
+return (x >= self.left) and (x <= self:right()) and (y >= self.top) and (y <= self:bottom())
+end
+
+function TWindow:SetPos(x,y)
+self:DrawClear()
+self.left = x
+self.top = y
+Invalidate()
+end
+
+function TWindow:SetSize(x,y)
+self.width = x
+self.height = y
+self.l:SetSize(x,y)
+Invalidate()
+end
+
+function TWindow:hide()
+self.visible = false
+self:DrawClear()
+Invalidate()
+end
+
+function TWindow:show()
+self.visible = true
+Invalidate()
+end
+
+function TWindow:FullScreen(raiseevent) -- using the PHYSICAL Monitor, not the Virtual Screen here !
+local a,b,c = self.Monitor:MonAtPos(self.left,self.top)
+if not a then
+	a,b,c = self.Monitor:MonAtPos(self.left+self.width,self.top+self.height)
+	end
+if a then
+	local obj = a.parent
+	self.left = obj.gpos[1]
+	self.top = obj.gpos[2]
+	self.width = obj.gpos[3]- obj.gpos[1] -1 
+	self.height = obj.gpos[4]- obj.gpos[2] - 2
+	Invalidate()	
+	if raiseevent and (self.task) then
+		new = events.CreateEvent("window_fullscreen","windows",obj,self)
+		mTask.RaiseHandleEvent(self.task,new)
+		end
+	end
+
+end
+
+function TWindow:ChangeMonitor(_new,raiseevent) 
+if _new ~= self.Monitor then
+	self:DrawClear()
+	local old = self.Monitor
+	self.Monitor = _new
+	self.left = 1
+	self.top = 1
+	Invalidate()
+	if raiseevent and (self.task) then
+		new = events.CreateEvent("window_monitor","windows",old,self)
+		mTask.RaiseHandleEvent(self.task,new)
+		end
+	return true
+	end
+return false
+end
+
+function TWindow:DrawClear()
+local line = ""
+local tx,ty = 0,0
+for tx=0,(self.width+self:borderwidth()) do
+	line=line.." "
+	end
+for ty=0,(self.height+self:borderwidth()) do
+	self.Monitor:WritePos(self.left,self.top+ty,line , colors.white , colors.black)
+	end
+end
+
+function TWindow:DrawClearBox(new)
+-- new if a vec3:TBox
+local line = ""
+local tx,ty = 0,0
+for tx=0,(self.width+self:borderwidth()) do
+	line=line.." "
+	end
+for ty=0,(self.height+self:borderwidth()) do
+	self.Monitor:WritePos(self.left,self.top+ty,line , colors.white , colors.black)
+	end
+end
+
+
+function TWindow:Draw()
+if not self.visible then
+	return false
+	end
+
+local h=self.height+self:borderwidth()
+local w=self.width+self:borderwidth()
+local curline = ""
+local symbols = "[# X]"
+local maxTitle = self.width - self.margin - string.len(symbols) + 1
+local a = 0
+local i = 0
+local obj,obj2 = nil
+local bobj,bobj2 = nil 
+local acolor = colors.white
+
+if self.border then
+	if string.len(self.name) > maxTitle then
+		sText=string.sub(self.name,1,maxTitle-3).."..."
+		else
+		sText=self.name
+		end
+   a = self.width - self.margin - string.len(sText) - string.len(symbols) + 1
+   if (GetActive() == self) then
+		acolor = colors.blue
+		if a > 0 then 
+			curline = "+" .. string.rep("=",self.margin) .. sText .. string.rep("=",a) .. symbols
+			else
+			curline = "+" .. string.rep("=",self.margin) .. sText  .. symbols
+			end
+		else
+		acolor = colors.lightBlue
+		if a > 0 then 
+			curline = "+" .. string.rep("-",self.margin) .. sText .. string.rep("-",a) .. symbols
+			else
+			curline = "+" .. string.rep("-",self.margin) .. sText  .. symbols
+			end
+		end
+	self.Monitor:WritePos(self.left,self.top,curline , colors.white , acolor)
+	if self.width > 0 then curline = "+" .. string.rep("-",self.width) .. "+" end
+	self.Monitor:WritePos(self.left,self.top+h,curline , colors.white , colors.black)
+	end
+	
+for ty=1,h-1 do
+	if #self.l.lines >= ty then
+		for i = 1,#self.l.lines[ty] do
+			self.Monitor:WritePos(self.left+self.l.lines[ty][i][1],self.top+ty,self.l.lines[ty][i][2],self.l.lines[ty][i][3],self.l.lines[ty][i][4])
+			end
+		end
+	self.Monitor:WritePos(self.left,self.top+ty,"|",colors.white , colors.black)
+	self.Monitor:WritePos(self.left+w,self.top+ty,"|",colors.white , colors.black)
+	end
+return sText,true
+end
+
+function TWindow:FindSpace()
+local Poss = {}
+local space = {}
+local i,obj = nil
+local anr = 1
+if not self.Monitor then 
+	return false
+	end
+local t = self.Monitor.pos:Size()
+--[[
+
+local rx = t[1]-self.width-2-self:borderwidth()
+local ry = t[2]-self.height-2-self:borderwidth()
+if (rx <=1 ) or (ry <= 1) then
+	return false
+	end--]]
+	
+	local function Test(aposx,aposy)
+	Poss[anr] = {aposx,aposy}
+	space[anr] = 0
+	local x,y = 0,0
+	for x = Poss[anr][1],Poss[anr][1]+self.width do
+		for y = Poss[anr][2],Poss[anr][2]+self.height do
+			local a = GetWindowatPos(x,y,self)
+			if (#a > 0) or ((x > t[1]) or (y > t[2])) then
+				space[anr] = space[anr] + 1
+				end
+			end	
+		end
+	anr = anr + 1
+	end
+	
+Test(1,1)
+for i,obj in ipairs(window) do
+	if obj ~= self then
+		Test(obj.left+obj.width+obj:borderwidth() , obj.top)
+		Test(obj.left+obj.width+obj:borderwidth() , obj.top+obj.height+obj:borderwidth())
+		Test(obj.left , obj.top+obj.height+obj:borderwidth())
+		end
+	end
+local mini = 1
+for i = 1,anr-1 do
+	if space[i] < space[mini] then
+		mini = i
+		end
+	end
+self:SetPos(Poss[mini][1],Poss[mini][2])
+end
+
+function TWindow:ClearChars( acount )
+self.l:ClearChars( acount )
+Invalidate()
+end
+
+function TWindow:write( text , color , bgcolor )
+if color then self.l.FontColor = color end
+if bgcolor then self.l.BackColor = bgcolor end
+self.l:write(text , color , bgcolor)
+Invalidate()
+end
+
+function TWindow:print( text , color , bgcolor)
+if color then self.l.FontColor = color end
+if bgcolor then self.l.BackColor = bgcolor end
+self.l:print(text , color , bgcolor)
+Invalidate()
+end
+
+function TWindow:writePos( x,y,text , color , bgcolor)
+self.l:writePos(x,y,text , color , bgcolor)
+Invalidate()
+end
+
+function TWindow:move(deltax,deltay)
+self:SetPos(self.left + deltax , self.top + deltay)
+Invalidate()
+end
+
+function TWindow:PressKey(akey)
+if (akey == 205) then 
+	self:move(1,0)
+elseif (akey == 203) then 
+	self:move(-1,0)
+elseif (akey == 200) then 
+	self:move(0,-1)
+elseif (akey == 208) then 
+	self:move(0,1)
+	end
+end
+
+-- Zum erstellen eines Fensters
+function CreateWindow(name , _task , makeactive)
+local new = TWindow(name or "", _task)
+if (makeactive) or (active == nil) then active = new end --ERROR active wird ned richtig gesetzt,...
+return new,x
+end
+
+function DestroyWindow(_w)
+local x = Pos(_w)
+if x < 0 then
+	return false
+	end
+_w:DrawClear()
+window:Del(x)
+if #window > 0 then
+	active = window[1]
+	end
+Invalidate()
+return true
+end
+
+function DestroyTaskWindow(_task)
+local i = 0
+for i = #window,1,-1 do
+	if window[i].task == _task then
+		DestroyWindow(window[i])
+		end
+	end
+end
+
+function WindowsofTask(_task)
+local result = 0
+local i,w = 0
+for i,w in ipairs(window) do
+	if w.task == _task then
+		result = result + 1
+		end
+	end
+return result
+end
+
+-- Zum Zeichnen !!! Aller Fenster !!!
+function DrawWindow()
+local i,w = 1
+local usedVMonitors = vec3.TList() -- should be only {mView.main}
+for i,w in ipairs(window) do
+	w:Draw()
+	if (usedVMonitors:IndexOf(w.Monitor) == -1) then
+	    usedVMonitors:Add(w.Monitor)
+		end
+	end
+for i,w in ipairs(usedVMonitors) do
+	w:Flush()
+	end
+needreDraw = false
+end
+
+function mayDraw()
+if needreDraw then DrawWindow() end
+end
+
+function Invalidate()
+needreDraw = true
+end
+
+function SetActive(x)
+active = x
+Invalidate()
+end
+
+function GetActive()
+return active
+end
+
+function GetWindow( _w)
+if (_w >0) and (_w <= #window) then
+	return window[_w]
+	else
+	return nil
+	end
+end
+
+function GetWindowCount()
+return #window
+end
+
+function GetWindowatPos(x,y,ausnahme,_Monitor)
+local result = {}
+for i,obj in ipairs(window) do
+	if (obj ~= ausnahme) and (obj:contains(x,y) and (obj.visible) and ((obj.Monitor == _Monitor) or (_Monitor == nil))) then
+		result[#result+1] = obj
+		end
+	end
+return result
+end
+
+-- zum rausfinden der Position
+function Pos( _w)
+return window:IndexOf(_w)
+end
+
+-- Zum fenster 1 nach oben setzten
+function up( _w )
+local z = Pos( _w)
+local result = (z > -1) and (z < #window)
+if result then
+	local _w2 = window[z+1]
+	window[z] = _w2
+	window[z+1] = _w
+	end
+Invalidate()
+return result
+end
+
+-- Zum fenster 1 nach unten setzten
+function down( _w )
+local z = Pos( _w)
+local result = (z > 0)
+if result then
+	local _w2 = window[z-1]
+	window[z] = _w2
+	window[z-1] = _w
+	end
+Invalidate()
+return result
+end
+
+-- Zum fenster ganz nach oben setzten
+function uptop( _w )
+while up( _w) do end
+Invalidate()
+end
+
+-- Zum fenster ganz nach unten setzten
+function updown( _w )
+while down( _w) do end
+Invalidate()
+end
+
+function ChangeWindow( _makeup)
+local a = Pos(GetActive())
+a = a+1
+if a > #window then
+	a = 1
+	end
+local b = GetWindow(a)
+SetActive(b) 
+if (b ~= nil) and _makeup then 
+	uptop(b)
+	end
+Invalidate()
+return b
+end
+
+function API_Initial()
+new = events.CreateEvent("Initialised","windows", "windows")
+mTask.RawRaiseEvent(new)
+end

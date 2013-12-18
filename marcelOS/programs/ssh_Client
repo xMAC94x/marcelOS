@@ -1,0 +1,137 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|explorer>version<1|0.2>changePrint<2|false>eventfilter<0|internet|mouse_click|window_resize|window_fullscreen>Debug<3|true>EventManager<3|true>>>other<info<0||name<0|explorer>version<2|0.2>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.window = windows.CreateWindow( Application.name , Application , true)
+Application.window:SetSize(40,20)
+Application.window:FindSpace(111)
+local seed = ""
+local sendCommand = false
+
+local Label1 = winobj.TLabel("Label1",Application.window,Application.window)
+Label1.width = 6
+Label1.top = 2
+Label1.left = 2
+Label1.caption = "ip"
+
+local Edit1 = winobj.TEdit("Edit1",Application.window,Application.window)
+Edit1.width = 15
+Edit1.top = 2
+Edit1.left = 10
+Edit1.border = false
+Edit1.text.text = ""
+
+local Label2 = winobj.TLabel("Label2",Application.window,Application.window)
+Label2.width = 6
+Label2.top = 4
+Label2.left = 2
+Label2.caption = "code"
+
+local Edit2 = winobj.TEdit("Edit2",Application.window,Application.window)
+Edit2.width = 15
+Edit2.top = 4
+Edit2.left = 10
+Edit2.border = false
+Edit2.text.text = "print('TEST')"
+
+local Label3 = winobj.TLabel("Label3",Application.window,Application.window)
+Label3.width = 6
+Label3.top = 6
+Label3.left = 2
+Label3.caption = "name"
+
+local Edit3 = winobj.TEdit("Edit3",Application.window,Application.window)
+Edit3.width = 15
+Edit3.top = 6
+Edit3.left = 10
+Edit3.border = false
+Edit3.text.text = "root"
+
+local Label4 = winobj.TLabel("Label4",Application.window,Application.window)
+Label4.width = 6
+Label4.top = 8
+Label4.left = 2
+Label4.caption = "password"
+
+local Edit4 = winobj.TEdit("Edit4",Application.window,Application.window)
+Edit4.width = 15
+Edit4.top = 8
+Edit4.left = 10
+Edit4.border = false
+Edit4.text.text = ""
+
+local Checkbox1 = winobj.TCheckbox("Checkbox1",Application.window,Application.window)
+Checkbox1.top = 10
+Checkbox1.left = 2
+Checkbox1.width = 10
+Checkbox1.border = false
+Checkbox1.caption = "su"
+
+local Checkbox2 = winobj.TCheckbox("Checkbox1",Application.window,Application.window)
+Checkbox2.top = 10
+Checkbox2.left = 10
+Checkbox2.width = 10
+Checkbox2.border = false
+Checkbox2.caption = "cmd"
+Checkbox2.checked = true
+
+local Button1 = winobj.TButton("TButton",Application.window,Application.window)
+Button1.left = 2
+Button1.top = 14
+Button1.width = Application.window.width-2
+Button1.caption = "Send"
+
+local function Button1Click(self)
+aNode = ehtf.THTNode()
+aNode:Add("requestseed",true)
+aNode:Add("name",Edit3.text.text)
+sendCommand = true
+ip.SendMessage(nil, tonumber(Edit1.text.text), nil,22,nil, aNode:ToStr())
+end
+
+Button1.onClick = Button1Click
+Application.window:RegisterEvents(Application)
+
+local function getEvent(_event)
+if (_event.name == "internet") and (_event.params[4] == "22") then
+	aNode = ehtf.THTNode()
+	aNode:FromStr(_event.params[6])
+	local _seed = aNode:Load("seed",false)
+	if _seed then
+		Debug("sshC","recieved Seed: " .. _seed)
+		seed = _seed
+		if sendCommand then
+			aNode = ehtf.THTNode()
+			local _cmd = ""
+			if Checkbox2.checked then
+				_cmd = "--mMultiOS \n --<~t<true>marcelOS<info<0||name<0|>version<1|1>changePrint<2|false>Debug<3|true>>>other<info<0||name<0|>version<2|1>>>> \n " .. Edit2.text.text
+				else
+				_cmd = Edit2.text.text
+				end
+			aNode:Add("command",_cmd)
+			aNode:Add("hash",md5.md5(_cmd .. Edit4.text.text .. seed))
+			aNode:Add("name",Edit3.text.text)
+			if Checkbox1.caption then
+				aNode:Add('su',true)
+				end
+			ip.SendMessage(nil, tonumber(Edit1.text.text), nil,22,nil, aNode:ToStr())
+			Debug("sshC","Command sended")
+			sendCommand = false
+			end
+		end
+	end
+end
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	Application.window:Event(obj)
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+while true do
+	EventHandle()
+	Application.window.l:clear()
+	Application.window:Paint()
+	mTask.sleepEvent(Application,6)
+	end

@@ -1,0 +1,14 @@
+OSPath = "/marcelOS"
+boot.BootMsg("visit http://marcelmaertens.funpic.de for information")
+
+if fs.isDir(OSPath.."/startup") then
+	local files = fs.list(OSPath.."/startup")
+	table.sort(files)
+	local k,file = 0,0
+	for k, file in ipairs(files) do
+		local path = fs.combine(OSPath.."/startup", file)
+		if not fs.isDir(path) then
+			shell.run(path)
+			end
+		end
+	end

@@ -1,0 +1,144 @@
+ local  Application  ,ApplicationSU  =  mTask.LastStarted()  coroutine.yield()  --mMultiOS 
+ Application.eventfilter:AddOnce("internet") 
+ local  windowmode  =  false 
+ local  kickTimeout  =  30 
+ local  mainInterval  =  4 
+ local  intervals  =  0.5 
+
+ local  function  aprint( _text ) 
+ if  windowmode  then 
+ Application.window:print(_text) 
+ 	end 
+ end 
+
+ local  function  aclear( ) 
+ if  windowmode  then  Application.window.l:clear()  end 
+ end 
+
+ local  function  Event(_event) 
+ local  a,b,c  =  nil,nil,0 
+ local  new  =  nil 
+ if  (_event.name == "internet")  and  (tostring(_event.params[4]) == "67")  and  (tostring(_event.params[5]) == "DHCP")  then	 
+ 	a,b,c  =  ip.OwnIP:GetDHCP(tonumber(_event.params[1])) 
+ 	if  a  ==  nil  then 
+ 		new  =  ip.OwnIP:Add(tonumber(_event.params[1])) 
+ aprint("NEW " .. new.lastping .. " " .. tostring(_event.params[1]).." "..tostring(_event.params[2]).." "..tostring(_event.params[3]).. " " .. tostring(_event.params[4]).. " " .. tostring(_event.params[5]).. " " ..tostring(_event.params[6]).. " ".. tostring(_event.params[7]).. " ".. tostring(_event.params[8])) 
+ 		else 
+ aprint("OLD " .. b.lastping .. " " .. b.ip)  	 
+ 		local  a2,b2,c2  =  ip.OwnIP:GetDHCP_C(tonumber(_event.params[1])) 
+ 		--  check  if  a  Connected  PC  is  also  connected  DIRECTY,  if  not,  fix  it  !!! 
+ 		if  a2  ==  nil  then 
+ 			 
+ 			ip.OwnIP.con[#ip.OwnIP.con+1]  =  b 
+ a.con:Del(c) 
+ aprint("Change Order... " .. b.ip .. " is now in direct range :D ") 
+ 			end				 
+ 		end 
+ 	 
+ 	new  =  ip.OwnIP:LoadfromString(_event.params[6] , true) 
+ 	if  new  then 
+ 		new.lastping  =  os.clock()  		 
+ 		end 
+ 	 
+ 	end 
+ end 
+
+ local  function  EventHandle() 
+ local  i,obj  =  0 
+ for  i,  obj  in  ipairs(Application.events)  do 
+ Event(obj) 
+ 	Application.events[i]  =  nil 
+ 	end 
+ end 
+
+ local  function  TimeKick( _obj ) 
+ local  i,obj  =  0 
+ for  i,obj  in  ipairs(_obj.con)  do 
+ 	if  obj.lastping  +  kickTimeout  <  os.clock()  then 
+ aprint(_obj.con[i].ip .. " kicked from the server , timeout" ) 
+ _obj.con:Del(i) 
+ 		end 
+ 	end 
+ end 
+
+ local  function  SendCurrent() 
+ local  i,obj  =  0 
+ local  astr  =  "" 
+ astr  =  ip.OwnIP:tostring() 
+
+ ip.SendMessage(nil,nil,nil,67,"DHCP",astr) 
+ end 
+
+ local  function  ShowCur( _obj , acnt) 
+ local  i,obj  =  0,nil 
+ local  i2,obj2  =  0,nil 
+ local  astr  =  "" 
+ for  i,obj  in  ipairs(_obj.con)  do 
+ 	astr  =  "" 
+ 	for  i2,obj2  in  ipairs(obj.parents)  do 
+ 		astr  =  astr  ..  "  "  ..  tostring(obj2.ip) 
+ 		end 
+ aprint("CON" .. string.rep("  " ,(acnt or 0)+1).. tostring(obj.ip).. "/" .. tostring(#obj.parents)..  " " .. astr .. tostring(obj.meta_own).. "#" .. vec3.PrintVec(obj.pos)) 
+ ShowCur( obj ,(acnt or 0)+1) 
+ 	end 
+ end 
+
+
+ local  Args  =  {...} 
+ if  (Args[1] == "windowmode")  then  windowmode  =  true  end 
+
+ local  p  =  ehtf.THTNode() 
+ local  o  =  nil 
+ p:LoadfromFile(path.C(path.DATA(),"DHCPregister/settings")) 
+ o  =  p:FindAboutC("windowmode") 
+ if  o  then  windowmode  =  o:SValuesB(1)  end 
+ o  =  p:FindAboutC("kickTimeout") 
+ if  o  then  kickTimeout  =  o:SValuesI(1)  end 
+ o  =  p:FindAboutC("mainInterval") 
+ if  o  then  mainInterval  =  o:SValuesI(1)  end 
+ o  =  p:FindAboutC("intervals") 
+ if  o  then  intervals  =  o:SValuesI(1)  end 
+
+ if  windowmode  then 
+ 	Application.window  =  windows.CreateWindow( Application.name , Application , true) 
+ Application.window:SetSize(40,25) 
+ 	end 
+
+ --  Initial  ...  More  Pings  and  receiving...  no  sending... 
+ aclear() 
+ aprint("Initial...") 
+ while  not  ip.HasModem()  do 
+ mTask.sleep(Application,2) 
+ aprint(" NO MODEM ATTACHED") 
+ 	end 
+
+ mTask.sleep(Application,mainInterval*2) 
+ EventHandle() 
+
+ aprint("Initial... done") 
+ mgps.ComputePos() 
+ local  a  =  vec3.PrintVec(mgps.GetPos() or {}) 
+ aprint(a) 
+ ShowCur(ip.OwnIP,0) 
+ mTask.sleep(Application,2) 
+
+ while  true  do 
+ aclear() 
+ 	while  not  ip.HasModem()  do 
+ mTask.sleep(Application,2) 
+ aprint(" NO MODEM ATTACHED") 
+ 		end 
+
+ aprint("start DHCP Server") 
+ aprint("Timeout:  " .. tostring(kickTimeout).. " Interval:  " .. tostring(intervals)) 
+ ShowCur(ip.OwnIP,0) 
+ 	 
+ mTask.sleep(Application,mainInterval) 
+ EventHandle() 
+ 	 
+ TimeKick(ip.OwnIP) 
+ mgps.ComputePos() 
+ 	local  a  =  vec3.PrintVec(mgps.GetPos() or {}) 
+ aprint(a) 
+ SendCurrent() 
+ 	end 

@@ -1,0 +1,356 @@
+-- marcelOS functions
+local pos = {0,64,0}
+local orientation = 0 -- internal minecraft orientation... 0 = positiv z    1 = negative x      2 = negative z    3 = positive x
+
+-- additional
+local lastmove = -1
+local lastcheckGPS = -1
+local lastmovedir = {0,0,0}
+
+-- setting
+local lastmovetimeout = 15 -- after 15 sec of not moving -> standing still 
+local lastmovemaxdif = 1 -- if standing still, max movement = 1 meters of cur pos
+local normalmovedif = 100
+local maxmapheight = 260
+local digmode = false
+local notmoving = true -- activate this, if you are sure, the turtle won't ever move ! Event not with RP Frames or Piston
+local realtimebackup = false -- may save a lot and cause a lot of harddrive operations ...
+
+boot.BootMsg("starting mgps")
+
+function GetPos()
+local x = vec3.Copy(pos)
+return x
+end
+
+function SetDigmode(_abool)
+digmode = _abool
+end
+
+function GetDigmode(_abool)
+return digmode
+end
+
+function GetOrientation()
+local x = orientation
+return x
+end
+
+function GetMovement()
+local x = {0,0,0}
+if orientation == 0 then x = {0,0,1}
+	elseif orientation == 1 then x = {-1,0,0}
+		elseif orientation == 2 then x = {0,0,-1}
+			elseif orientation == 3 then x = {1,0,0} end
+return x
+end
+
+function SetPos(apos,aorientation)
+if apos then 
+	pos = vec3.Copy(apos)
+	end
+if aorientation then
+	orientation = aorientation
+	end
+end
+
+--[[ STEAL :D ]]
+function trilaterate( A, B, C )
+
+	local a2b = B.position - A.position
+	local a2c = C.position - A.position
+		
+	if math.abs( a2b:normalize():dot( a2c:normalize() ) ) > 0.999 then
+		return nil
+	end
+	
+	local d = a2b:length()
+	local ex = a2b:normalize( )
+	local i = ex:dot( a2c )
+	local ey = (a2c - (ex * i)):normalize()
+	local j = ey:dot( a2c )
+	local ez = ex:cross( ey )
+
+	local r1 = A.distance
+	local r2 = B.distance
+	local r3 = C.distance
+		
+	local x = (r1*r1 - r2*r2 + d*d) / (2*d)
+	local y = (r1*r1 - r3*r3 - x*x + (x-i)*(x-i) + j*j) / (2*j)
+		
+	local result = A.position + (ex * x) + (ey * y)
+
+	local zSquared = r1*r1 - x*x - y*y
+	if zSquared > 0 then
+		local z = math.sqrt( zSquared )
+		local result1 = result + (ez * z)
+		local result2 = result - (ez * z)
+		
+		local rounded1, rounded2 = result1:round(), result2:round()
+		if rounded1.x ~= rounded2.x or rounded1.y ~= rounded2.y or rounded1.z ~= rounded2.z then
+			return result1, result2
+		else
+			return rounded1
+		end
+	end
+	return result:round()
+	
+end
+
+function narrow( p1, p2, fix )
+	local dist1 = math.abs( (p1 - fix.position):length() - fix.distance )
+	local dist2 = math.abs( (p2 - fix.position):length() - fix.distance )
+	
+	if math.abs(dist1 - dist2) < 0.05 then
+		return p1, p2
+	elseif dist1 < dist2 then
+		return p1:round()
+	else
+		return p2:round()
+	end
+end
+
+
+
+
+function ComputePos()
+if notmoving then
+	-- NO I'm not Moving, so why compute this all :)
+	return pos,true
+	end
+local curpos = vector.new( pos[1] , pos[2] , pos[3])
+local goodpos = {}
+local i,obj = 0,nil
+local result = false
+for i,obj in ipairs(ip.OwnIP.con) do
+	if obj.lastping >= lastmove then
+		goodpos[#goodpos+1] = obj
+		end
+	end
+print("available PCs " .. tostring(#goodpos))
+
+if #goodpos >= 3 then
+	--[[  Copied from Original :) ]]
+	
+	local tFixes = {}
+	local p1, p2 = nil
+	local i,obj = 1,nil
+	while i <= #goodpos  and (p1 == nil or p2 ~= nil) do
+		obj = goodpos[i]
+		local tFix = { id = obj.id, position = vector.new( obj.pos[1], obj.pos[2], obj.pos[3] ), distance = obj.entf }
+		table.insert( tFixes, tFix )
+		if #tFixes >= 3 then
+			if not p1 then
+				p1, p2 = trilaterate( tFixes[1], tFixes[2], tFixes[#tFixes] )
+				else
+				p1, p2 = narrow( p1, p2, tFixes[#tFixes] )
+				end
+			end
+		i = i + 1
+		end
+	if p1 then
+		p1 = p1:round()
+		end
+	if p1 and p2 then
+		-- Could be both, p1 or p2 !!!
+		p2 = p2:round()
+		local p1a = (p1 - curpos):length() 
+		local p2a = (p2 - curpos):length() 
+		if p1a > p2a then
+			p1 = p2 --change p1 and p2
+			p1a = p2a
+			end
+		p2 = nil
+		end
+	if p1 and (not p2) and (not(p1.x  ~= p1.x)) and (not(p1.y  ~= p1.y)) and (not(p1.z  ~= p1.z)) and (p1.y >= 0) and (p1.y <= maxmapheight) then -- checking fpr nan :D
+		local maxdiff = nil
+		local p1a = (p1 - curpos):length() 
+		if (lastcheckGPS > 0) then
+			if (os.clock() - lastmove < lastmovetimeout) or (lastmove < lastmovetimeout) then
+				maxdiff = normalmovedif
+				else 
+				maxdiff = lastmovemaxdif
+				end
+			end
+		if (maxdiff == nil) or (p1a <= maxdiff) then
+			print( "Position is "..vec3.round(p1.x)..","..vec3.round(p1.y)..","..vec3.round(p1.z) )
+			pos = {vec3.round(p1.x), vec3.round(p1.y), vec3.round(p1.z)}
+			lastcheckGPS = os.clock()
+			ChangePos()
+			result = true
+			else
+			print(maxdiff)
+			print(p1a)
+			print(lastcheckGPS)
+			print( "Position is "..p1.x..","..p1.y..","..p1.z )
+			print( "Position was "..curpos.x..","..curpos.y..","..curpos.z )
+			print("You moved the Turtle to fast or Network error...")
+			end
+		
+		
+		end
+	end
+
+return pos,result
+-- Search all dircet OwnIP-PC's and search for their pos and their entf (need to be added!). Use not moving if you can ! 
+-- if not enough pc's in the nead and there are 4 different possibilities, chose the nearest to the current...
+end
+
+function ChangePos()
+local p = ehtf.THTNode()
+p:Add("pos",pos)
+p:Add("orientation",orientation)
+p:SavetoFile(path.C(path.DATA(),"mgps/pos"))
+ip.OwnIP.pos = pos
+lastmove = os.clock()
+end
+
+function InvStacks()
+local i = 0
+local result = 0
+for i = 1,9 do
+	if turtle.getItemCount( i ) == 0 then result = result + 1 end 
+	end
+return result
+end
+
+function forward()
+if digmode and turtle.detect() then
+	turtle.dig() 
+	end
+if turtle.forward() then
+	pos = vec3.Add(pos,GetMovement())
+	lastmove = os.clock()
+	if realtimebackup then
+		ChangePos()
+		end
+	return true
+	end
+return false
+end
+
+function back()
+if turtle.back() then
+	pos = vec3.Dec(pos,GetMovement())
+	lastmove = os.clock()
+	if realtimebackup then
+		ChangePos()
+		end
+	return true
+	end
+return false
+end
+
+function up(_sleep)
+if digmode and turtle.detectUp() then
+	turtle.digUp() 
+	end
+if turtle.up() then
+	pos[2] = pos[2] + 1
+	lastmove = os.clock()
+	if realtimebackup then
+		ChangePos()
+		end
+	return true
+	end
+return false
+end
+
+function down(_sleep)
+if digmode and turtle.detectDown() then
+	turtle.digDown()
+	end
+if turtle.down() then
+	pos[2] = pos[2] - 1
+	lastmove = os.clock()
+	if realtimebackup then
+		ChangePos()
+		end
+	return true
+	end
+return false
+end
+
+function turnLeft(_sleep)
+if turtle.turnLeft() then
+	if orientation <= 0 then
+		orientation = orientation - 1
+		else
+		orientation = 3 + orientation
+		end
+	return true
+	end
+return false
+end
+
+function turnRight(_sleep)
+if turtle.turnRight() then
+	if orientation >= 3 then
+		orientation = orientation - 3
+		else
+		orientation = orientation + 1
+		end
+	return true
+	end
+return false
+end
+
+function Left(_sleep)
+return (turnLeft() and forward())
+end
+
+function Right(_sleep)
+return (turnRight() and forward())
+end
+
+
+
+function API_Initial()
+local p = ehtf.THTNode()
+p:LoadfromFile(path.C(path.DATA(),"mgps/pos"))
+local o = p:FindAboutC("pos") 
+if o then
+	pos = {o:SValuesI(1),o:SValuesI(2),o:SValuesI(3)}
+	end
+o = p:FindAboutC("orientation") 
+if o then
+	orientation = o:SValuesI(1)
+	end
+if ip.OwnIP then 
+	ip.OwnIP.pos = pos 
+	end
+	
+p = ehtf.THTNode()
+p:LoadfromFile(path.C(path.DATA(),"mgps/settings"))
+o = p:FindAboutC("lastmovetimeout") 
+if o then
+	lastmovetimeout = o:SValuesI(1)
+	end
+o = p:FindAboutC("lastmovemaxdif") 
+if o then
+	lastmovemaxdif = o:SValuesI(1)
+	end
+o = p:FindAboutC("normalmovedif") 
+if o then
+	normalmovedif = o:SValuesI(1)
+	end
+o = p:FindAboutC("maxmapheight") 
+if o then
+	maxmapheight = o:SValuesI(1)
+	end	
+o = p:FindAboutC("digmode") 
+if o then
+	digmode = o:SValuesB(1)
+	end		
+o = p:FindAboutC("notmoving") 
+if o then
+	notmoving = o:SValuesB(1)
+	end			
+o = p:FindAboutC("realtimebackup") 
+if o then
+	realtimebackup = o:SValuesB(1)
+	end	
+
+local new = events.CreateEvent("Initialised","mgps", "mgps")
+mTask.RawRaiseEvent(new)
+end

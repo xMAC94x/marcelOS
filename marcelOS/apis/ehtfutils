@@ -1,0 +1,113 @@
+TEHTFStatus = {"EHTFdone","EHTFdonePart","EHTFerror","EHTFexit","EHTFincorrectString","EHTFnone"}
+
+TVarDec = classapi.class(nil,"TVarDec")
+
+function TVarDec:__init()
+	self._Begin = "<"
+	self._End = ">"
+	self._Array = "|"
+	self._System = "~"
+	end
+
+ToStrPar = {"tsWriteMetaInfo","tsWriteTypecast","tsUseTypecast","tsUseInsert"}
+ToStrMode = {["tsWriteMetaInfo"] = true,["tsWriteTypecast"] = true,["tsUseTypecast"] = true,["tsUseInsert"] = true}
+stToStrMode =  {["tsWriteMetaInfo"] = false,["tsWriteTypecast"] = true,["tsUseTypecast"] = true,["tsUseInsert"] = true}
+stToStrModeAll =  {["tsWriteMetaInfo"] = true,["tsWriteTypecast"] = true,["tsUseTypecast"] = true,["tsUseInsert"] = true}
+EHTFversion = "0.9.8"
+
+function stvardec()
+return TVarDec()
+end
+
+function TVarDec:Assign(vardec)
+-- Pflicht da Klasse und kein Record !
+self._Begin = vardec._Begin
+self._End = vardec._End
+self._Array = vardec._Array
+self._System = vardec._System
+end
+
+function FileToString( apath )
+local result = ""
+local file = fs.open(apath,"r")
+if file then
+	result = file.readAll()
+	file.close()
+	end
+return result
+end
+
+function FileToStringB( apath )
+local result = ""
+local file = fs.open(apath,"rb")
+local sLine = ""
+if file then
+	sLine = file.read()
+	while sLine do
+		result = result .. sLine
+		sLine = file.read()
+		end
+	file.close()
+	end
+return result
+end
+
+function StringToFile( apath , astring )
+local file = fs.open(apath,"w")
+if file then
+	file.write(astring)
+	file.close()
+	end
+end
+
+function HTStrtoSVar(astr,typecast)
+-- Andere funktion...
+local result
+if typecast == 0 then
+	result = tostring(astr)
+	elseif (typecast == 1) or (typecast == 2) then
+		result = tonumber(astr)
+		elseif typecast == 3 then
+			result = toboolean(astr)
+			else
+			result = astr
+			end
+return result
+end
+
+function GetArt(SVar)
+-- NEW FUNCTION
+local result = 0
+if type(SVar) == "number" then 
+	result = 1
+	elseif type(SVar) == "string" then
+		result = 0
+		elseif type(SVar) == "boolean" then
+			result = 3
+			else
+			result = -1
+			end
+return result
+end
+
+function toboolean(avalue)
+if type(avalue) == "number" then
+	return (avalue == -1)
+	elseif type(avalue) == "string" then
+		return (string.lower(avalue) == "true")
+		elseif type(avalue) == "boolean" then
+			return avalue
+			else
+			return (avalue ~= nil)
+			end
+end
+
+function HTVardectoStr(newvardec, oldvardec)
+local result = oldvardec._System .. oldvardec._Begin.. "v"  .. oldvardec._Begin .. EHTFversion .. oldvardec._End
+       .. "_b"   .. oldvardec._Begin .. string.byte(newvardec._Begin)   .. oldvardec._End
+       .. "_e"     .. oldvardec._Begin .. string.byte(newvardec._End)     .. oldvardec._End
+       .. "_a"   .. oldvardec._Begin .. string.byte(newvardec._Array)   .. oldvardec._End
+       .. "_s"  .. oldvardec._Begin .. string.byte(newvardec._System)  .. oldvardec._End
+       .. oldvardec._End
+return result
+end

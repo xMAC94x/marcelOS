@@ -1,0 +1,26 @@
+--mMultiOS
+--<~<t<true>>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|true>IdleCount<1|3>EventManager<3|true>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~<il<23>>print("Unknown OS ...")>>>
+Application.useevents = true
+Application.window = windows.CreateWindow( Application.name , Application , true)
+Application.window:SetSize(18,14)
+Application.window.left = 10
+Application.window.top = 5
+
+local Edit1 = winobj.TEdit("Edit1",Application.window,Application.window)
+Edit1.width = 12
+Edit1.top = 2
+Edit1.left = 2
+Edit1.text:SetText("Default :D")
+
+function getEvent(_event)
+Application.window:print(_event.name)
+end
+
+while true do
+    Application.window.l:clear()
+	Application.window:Paint()
+	Application.window.l.CursorX = 1
+	Application.window.l.CursorY = 5
+	EventHandle()
+	sleep(1)
+	end

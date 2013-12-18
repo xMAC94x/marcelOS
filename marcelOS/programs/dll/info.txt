@@ -1,0 +1,2 @@
+dll's are like programs, but they dont have a while true loop, they are more like windows cmd programs.
+Start them with the right Arguments :)

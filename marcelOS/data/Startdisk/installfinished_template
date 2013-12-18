@@ -1,0 +1,17 @@
+local function SelectColor(acolor)
+if term.isColor and term.isColor() then
+	term.setTextColor(acolor or colors.white)
+	end
+end
+
+term.clear()
+term.setCursorPos(1,1)
+SelectColor(colors.green)
+print("Your installation is complete") 
+SelectColor(colors.white)
+print("PC will reboot now") 
+if fs.exists("/marcelOS.install") then
+	fs.delete("/marcelOS.install")
+	end
+sleep(1.5)
+os.reboot()

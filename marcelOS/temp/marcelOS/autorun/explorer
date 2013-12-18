@@ -1,0 +1,268 @@
+ local  Application  ,ApplicationSU  =  mTask.LastStarted()  coroutine.yield()  --mMultiOS 
+ Application.eventfilter:AddOnce("mouse_click")  Application.eventfilter:AddOnce("window_resize")  Application.eventfilter:AddOnce("window_fullscreen")  local  function  EventHandle()  
+  local  i,obj  =  0  for  i,  obj  in  ipairs(Application.events)  do  getEvent(obj)  if  (Application.window)  then  Application.window:Event(obj)  end  Application.events[i]  =  nil  end  
+  end  local  function  Debug(title,msg,color)  
+  if  ThrowDebug  then  ThrowDebug(Application,title,msg,color)  end  
+  end  print("Hello, explorer run under marcelOS") 
+ Application.window  =  windows.CreateWindow( Application.name , Application , true) 
+ Application.window:SetSize(40,20) 
+ Application.window:FindSpace(111) 
+ local  i,obj  =  0 
+ local  curPath  =  "/marcelOS" 
+ local  trennX  =  15 
+ local  offset  =  1 
+ local  blocknextevent  =  false 
+ local  popupObj  =  nil 
+
+ local  Edit1  =  winobj.TEdit("Edit1",Application.window,Application.window) 
+ Edit1.left  =  8 
+ Edit1.width  =  Application.window.width  -  7 
+ Edit1.border  =  false 
+ Edit1.text.text  =  "explorer" 
+
+ local  Checkbox1  =  winobj.TCheckbox("Checkbox1",Application.window,Application.window) 
+ Checkbox1.width  =  6 
+ Checkbox1.border  =  false 
+ Checkbox1.caption  =  "su" 
+
+ local  Listbox1  =  winobj.TListbox("Listbox1",Application.window,Application.window) 
+ Listbox1.visible  =  false 
+ Listbox1.height  =  3 
+ Listbox1.border  =  true 
+ Listbox1.width  =  20 
+ Listbox1.data:Add("SUDO") 
+ Listbox1.data:Add("RUN") 
+ Listbox1:Resize() 
+
+ Application.window:RegisterEvents(Application) 
+
+ local  Eintrag  =  {} 
+ local  TEintrag_Explorer  =  classapi.class(nil,"TEintrag_ExplorerEX") 
+
+ function  TEintrag_Explorer:__init(_pfad , _tabelle , _pos , _selected,_tiefe) 
+ 	self.name  =  fs.getName(_pfad) 
+ 	self.pfad  =  _pfad 
+ 	if  _tiefe  then 
+ 		self.tiefe  =  _tiefe 
+ 		else 
+ 		self.tiefe  =  0 
+ 		--Berechnen 
+ 		end 
+ 	self.tabelle  =  _tabelle 
+ 	self.pos  =  _pos  +  offset 
+ 	self.selected  =  _selected 
+ 	Eintrag[#Eintrag+1]  =  self 
+ end 
+
+ local  function  NewEintrag(_pfad , _tabelle , _pos , _selected,_tiefe) 
+ local  new  =  TEintrag_Explorer(_pfad , _tabelle , _pos , _selected,_tiefe) 
+ return  new 
+ end 
+
+ local  function  PathChanged() 
+ local  tData  =  {} 
+ local  astr  =  "" 
+ local  cury  =  1 
+ local  i,obj  =  0 
+ local  n,sFile  =  0 
+
+ for  i,obj  in  ipairs(Eintrag)  do 
+ 	Eintrag[i]  =  nil 
+ 	end 
+
+ local  curfolders  =  mStrings.split(curPath,"/") 
+ for  i  =  #curfolders,1,-1  do 
+ 	curfolders[i+1]  =  curfolders[i] 
+ 	end 
+ curfolders[1]  =  "/" 
+
+ --  Neben 
+ for  i,obj  in  ipairs(curfolders)  do 
+ 	sFile  =  mStrings.merge(curfolders,"/",i,true) 
+ NewEintrag(sFile,1,cury,true,i) 
+ 	cury  =  cury  +  1 
+ 	end 
+ for  i  =  #curfolders,1,-1  do 
+ obj  =  mStrings.merge(curfolders,"/",i,true) 
+ 	if  fs.isDir(path.FOLDER(obj) )  then	 
+ 		tData  =  fs.list( obj ) 
+ 		for  n,sFile  in  ipairs( tData )  do 
+ 			if  fs.isDir(path.C(obj,sFile))  and  (sFile ~= curfolders[i+1])  then 
+ NewEintrag(path.C(obj,sFile),1,cury,false,i+1) 
+ 				cury  =  cury  +  1 
+ 				end 
+ 			end 
+ 		end 
+ 	end 
+ --  MAIN 
+ tData  =  fs.list( curPath ) 
+ local  cury  =  1 
+ for  n,sFile  in  ipairs( tData )  do 
+ 	if  fs.isDir(path.C(curPath,sFile))  then 
+ NewEintrag(path.C(curPath,sFile),2,cury,false,1) 
+ 		cury  =  cury  +  1 
+ 		end 
+ 	end 
+ for  n,sFile  in  ipairs( tData )  do 
+ 	if  not  fs.isDir(path.C(curPath,sFile))  then 
+ NewEintrag(path.C(curPath,sFile),2,cury,false,1) 
+ 		cury  =  cury  +  1 
+ 		end 
+ 	end 
+ end 
+
+
+
+
+ local  function  ShowPath() 
+ local  astr  =  "" 
+ local  i,obj  =  0 
+ local  last1  =  0 
+ local  last2  =  0 
+ local  maxtiefe  =  0 
+ local  acolor  =  colors.white 
+ Application.window.l:clear() 
+ for  i,obj  in  ipairs(Eintrag)  do 
+ 	acolor  =  colors.white 
+ 	if  obj.tabelle  ==  1  then 
+ 		astr  =  obj.name 
+ 		maxtiefe  =  0 
+ 		if  obj.selected  then 
+ 			astr  =  ">"  ..  astr 
+ 			maxtiefe  =  1 
+ 			acolor  =  colors.yellow 
+ 			end 
+ Application.window:writePos(obj.tiefe-maxtiefe,obj.pos,astr , acolor) 
+ 		last1  =  obj.pos 
+ 		end 
+ 	if  obj.tabelle  ==  2  then 
+ 		astr  =  obj.name 
+ 		acolor  =  colors.white 
+ 		if  fs.isDir( obj.pfad )  then 
+ 			astr  =  "["  ..  astr  ..  "]" 
+ 			acolor  =  colors.yellow 
+ 			end 
+ Application.window:writePos(trennX+1,obj.pos,astr , acolor) 
+ 		last2  =  obj.pos 
+ 		end 
+ 	end 
+ 	 
+ Application.window.name  =  "explorer"  ..  "  '"  ..  curPath  ..  "'" 
+ for  i  =  offset+1,Application.window.height  do 
+ Application.window:writePos(trennX,i,"." , colors.gray , colors.black) 
+ 	end 
+ Application.window:Paint() 
+ end 
+
+ local  function  StartPrg(obj,_sudo) 
+ local  co,co2  =  mTask.CreateTask( obj.name or "" , true ) 
+ co.file  =  obj.pfad  or  "" 
+ local  Arg  =  mStrings.split(Edit1.text.text," ") 
+ for  i  =  1,#Arg  do 
+ co.args:Add(Arg[i]) 
+ 	end 
+ if  _sudo  then 
+ co2:sudoRun() 
+ 	else 
+ co:run() 
+ 	end 
+ end 
+
+
+ local  function  EintragOfPos(_x,_y,mouse) 
+ local  i,obj  =  0 
+ local  tabel  =  1 
+ if  (_x > trennX)  then 
+ 	tabel  =  2 
+ 	end 
+ 	 
+
+
+ if  Listbox1:Inbox(_x,_y)  and  Listbox1.visible  then 
+ 	--  YEAH 
+ 	else 
+ 	if  (mouse ~= 2)  then 
+ 		Listbox1.visible  =  false 
+ ShowPath() 
+ 		end 
+ 	for  i,obj  in  ipairs(Eintrag)  do 
+ 		if  ((obj.tabelle == tabel)and(obj.pos == _y))  then 
+ 			if  fs.isDir(obj.pfad)  then 
+ 				curPath  =  obj.pfad 
+ PathChanged() 
+ 				Listbox1.visible  =  false 
+ ShowPath()  	 
+ 				return  --  !!! 
+ 				else 
+ 				if  mouse  ==  2  then 
+ 					Listbox1.left  =  _x 
+ 					Listbox1.top  =  _y 
+ 					Listbox1.selobj  =  nil 
+ Listbox1:Resize() 
+ ShowPath() 
+ 					popupObj  =  obj 
+ 					Listbox1.visible  =  true 
+ 					else 
+ 					if  Checkbox1.checked  then 
+ StartPrg(obj,true) 
+ 						return  --  !!! 
+ 						else 
+ 						if  not  programs.OpenFile(obj.pfad or "" ,mStrings.split(Edit1.text.text," ") , obj.name)  then 
+ Debug("ERROR","sry,i have no idea how to open a " .. mStrings.FileEnding(obj.pfad) .. " file") 
+ 							end 
+ 						return  --  !!! 
+ 						end 
+ 					end 
+ 				end	 
+ 			end 
+ 		end 
+ 	end 
+ end 
+
+ local  function  Listbox1onSelectionChange(old) 
+ if  not  popupObj  then  return  end 
+ if  Listbox1.selected  ==  1  then 
+ StartPrg(popupObj,true) 
+ 	end 
+ if  Listbox1.selected  ==  2  then 
+ StartPrg(popupObj,false) 
+ 	end 
+ Listbox1.visible  =  false 
+ Listbox1.selected  =nil 
+ blocknextevent  =  true 
+ ShowPath() 
+ end 
+
+ Listbox1.onSelectionChange  =  Listbox1onSelectionChange 
+
+ local  function  getEvent(_event) 
+ if  (_event.name == "mouse_click")  then 
+ 	local  posx  =  _event.params[2] 
+ 	local  posy  =  _event.params[3] 
+ EintragOfPos(posx,posy,_event.params[1]) 
+ 	end 
+ if  (_event.name == "window_resize")  or  (_event.name == "window_fullscreen")  then 
+ 	Edit1.width  =  Application.window.width  -  7 
+ 	end 
+
+ end 
+
+ local  function  EventHandle() 
+ local  i,obj  =  0,nil 
+ for  i,  obj  in  ipairs(Application.events)  do 
+ Application.window:Event(obj) 
+ 	if  not  blocknextevent  then 
+ getEvent(obj) 
+ 		end 
+ 	blocknextevent  =  false 
+ 	Application.events[i]  =  nil 
+ 	end 
+ end 
+
+ PathChanged() 
+ ShowPath() 
+ while  true  do 
+ EventHandle() 
+ Application.window:Paint() 
+ mTask.sleepEvent(Application,6) 
+ 	end 

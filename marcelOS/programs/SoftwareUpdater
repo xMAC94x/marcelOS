@@ -1,0 +1,221 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|explorer>version<1|0.2>changePrint<2|false>eventfilter<0|http_success|mouse_click|window_resize|window_fullscreen>Debug<3|true>EventManager<3|true>>code<0|print("Hello, SoftwareUpdater run under marcelOS")>>other<info<0||name<0|explorer>version<2|0.2>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.window = windows.CreateWindow( Application.name , Application , true)
+Application.window:SetSize(40,20)
+Application.window:FindSpace(111)
+local lookout = "http://marcelmaertens.ma.funpic.de/marcelOS/listprojects.php"
+local basepath = "http://marcelmaertens.ma.funpic.de/marcelOS/Softwareupdate/"
+local localpath = path.C(path.DATA(),"SoftwareUpdater")
+local localdatapath = path.C(localpath,"programs") 
+local projects = vec3.TList()
+local currentDownloads = 0
+local autoupdate = false
+
+local Listbox1 = winobj.TListbox("TListbox",Application.window,Application.window)
+Listbox1.left = 1
+Listbox1.top = 1
+Listbox1.width = Application.window.width-1
+Listbox1.height = 7
+Listbox1.border = true
+Listbox1:Resize()
+
+local Label1 = winobj.TLabel("TLabel",Application.window,Application.window)
+Label1.left = 1
+Label1.top = 9
+Label1.width = Application.window.width-1
+Label1.caption = "Description"
+
+local Label2 = winobj.TLabel("TLabel",Application.window,Application.window)
+Label2.left = 1
+Label2.top = 10
+Label2.width = Application.window.width-1
+Label2.caption = "lastest ver:"
+
+local Label3 = winobj.TLabel("TLabel",Application.window,Application.window)
+Label3.left = 1
+Label3.top = 11
+Label3.width = Application.window.width-1
+Label3.caption = "current ver:"
+
+local Label4 = winobj.TLabel("TLabel",Application.window,Application.window)
+Label4.left = 1
+Label4.top = Application.window.height-1
+Label4.width = Application.window.width-1
+Label4.caption = "current Downloads: 0"
+
+local Button1 = winobj.TButton("TButton",Application.window,Application.window)
+Button1.left = 2
+Button1.top = 13
+Button1.width = Application.window.width-2
+Button1.caption = "Download"
+
+
+
+local TProject_SoftwareUpdater = classapi.class(nil,"TProject_SoftwareUpdater")
+
+function TProject_SoftwareUpdater:__init(_name)
+	self.name = _name
+	self.path = path.C(basepath,self.name)
+	self.cpath = path.C(self.path,"config.ehtf")
+	self.config = nil
+	self.configstr = nil
+	self.localproject = nil -- of same class, assigned in checkLocal
+	self.installed = nil
+	
+	self.projectname = ""
+	self.version = ""
+	self.description = ""
+end
+
+function TProject_SoftwareUpdater:RequestConfig()
+self.cpath = path.C(self.path,"config.ehtf")
+http.request(self.cpath)
+end
+
+function TProject_SoftwareUpdater:buildConfig(_config)
+self.configstr = _config.readAll()
+_config:close()
+self.config = ehtf.THTNode()
+self.config:FromStr(self.configstr)
+local p = nil
+p = self.config:FindAboutC("name")
+if p then self.projectname = p:SValuesS(1) end
+p = self.config:FindAboutC("ver")
+if p then self.version = p:SValuesS(1) end
+p = self.config:FindAboutC("description")
+if p then self.description = p:SValuesS(1) end
+Debug("m",self.configstr)
+end
+
+function TProject_SoftwareUpdater:checkLocal(_config)
+local s = path.C(localdatapath,self.name)
+self.installed = fs.exists(s)
+if self.installed then
+    local obj = TProject_SoftwareUpdater(self.name)
+	self.localproject = obj
+	obj.path = s
+	obj.cpath = path.C(obj.path,"config.ehtf")
+	local f = fs.open(obj.cpath,"r")
+	obj:buildConfig(f)
+	end
+end
+
+
+local function SelChanged(self,old)
+if Listbox1.selected == -1 then return end
+obj = projects[Listbox1.selected]
+Label1.caption = (obj.projectname or obj.name)
+if obj.version ~= "" then
+	Label2.caption = "lastest ver: " .. obj.version
+	else
+	Label2.caption = "lastest ver: NONE"
+	end
+if obj.localproject then
+	Label3.caption = "current ver: " .. obj.localproject.version
+	else
+	Label3.caption = "current ver: NONE"
+	end
+Label4.caption = "current Downloads: " .. tostring(currentDownloads)
+end
+
+local function OnInstalled()
+currentDownloads = currentDownloads - 1
+SelChanged()
+end
+
+
+function TProject_SoftwareUpdater:Install() 
+local conf = ehtf.THTNode()
+currentDownloads = currentDownloads + 1
+SelChanged()
+
+conf:Add("mode","install")
+conf:Add("source",self.path)
+conf:Add("configstring",self.configstr)
+conf:Add("onDone",OnInstalled)
+
+local co = mTask.CreateTask( "mproject" )
+co.file = path.C( path.PROGRAMS() , "dll", "mprojectmeta" )
+co.args:Add(conf)
+co:run()
+-- Save local Data
+local s = path.C(localdatapath,self.name)
+local s2 = path.C(s,"config.ehtf")
+if not fs.exists(s) then 
+	fs.makeDir(s)
+	end
+ehtfutils.StringToFile(s2,self.configstr)
+end
+
+local function Button1Click(self)
+if Listbox1.selected == -1 then return end
+obj = projects[Listbox1.selected]
+obj:Install()
+
+end
+
+local function getProjects()
+http.request(lookout)
+end
+
+local function generateProjects(h)
+projects = vec3.TList()
+Listbox1.data = vec3.TList()
+local sLine = h.readLine()
+while sLine do
+  local obj = TProject_SoftwareUpdater(sLine)
+  projects:Add(obj)
+  Listbox1.data:Add(sLine)
+  obj:RequestConfig()
+  sLine = h.readLine() 
+  end
+end
+
+Button1.onClick = Button1Click
+Listbox1.onSelectionChange = SelChanged
+Application.window:RegisterEvents(Application)
+
+local function getEvent(_event)
+if (_event.name == "window_resize") or (_event.name == "window_fullscreen") then
+	Listbox1.width = Application.window.width - 2
+	Listbox1:Resize()
+	end
+if (_event.name == "http_success") then
+	if _event.params[1] == lookout then
+		generateProjects(_event.params[2])
+		end
+	local i,obj = 0
+	for i,obj in ipairs(projects) do
+		if obj.cpath == _event.params[1] then
+			obj:buildConfig(_event.params[2])
+			obj:checkLocal()
+			if autoupdate and obj.localproject and (obj.version ~= obj.localproject.version) then
+				-- AutoUpdate!!!
+				obj:Install()
+				end
+			SelChanged()
+			end
+		end
+	end
+end
+
+local function EventHandle()
+local i,obj = 0,nil
+for i, obj in ipairs(Application.events) do
+	Application.window:Event(obj)
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+aNode = ehtf.THTNode()
+aNode:LoadfromFile(path.C(localpath,"settings.ehtf"))
+autoupdate = aNode:Load("autoupdate",false)
+
+getProjects()
+while true do
+	EventHandle()
+	Application.window.l:clear()
+	Application.window:Paint()
+	mTask.sleepEvent(Application,6)
+	end

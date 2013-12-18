@@ -1,0 +1,631 @@
+-- marcelOS windows functions
+-- Handles for your Window !!!
+boot.BootMsg("starting winobj")
+
+TWinObj = classapi.class(nil,"TWinObj") 
+
+function TWinObj_Selected(self,strict)
+local ok = (not self.parent) or ((self.parent.selobj == self) and ((not strict) or (self.selobj == nil)))
+return ok
+end
+
+function TWinObj_ChangeTabOrder(self)
+local a = self.obj:IndexOf(self.selobj)
+if a == #self.obj then
+	self.selobj = nil -- Wieder auf Nil!
+	else
+	local b,c = self.obj:Inc(a)
+	self.selobj = b 
+	end
+end
+
+function TWinObj_Event(self,_event)
+if self:Selected() then
+	if (_event.name == "key") then
+		if (_event.params[1] == 15) and (#self.obj > 0) then	
+			TWinObj_ChangeTabOrder(self)
+			while (self.selobj) and ((not self.selobj.canselect) or (not self.selobj.visible)) do
+				TWinObj_ChangeTabOrder(self)
+				end
+			end
+		end
+	if (_event.name == "mouse_click") then
+		for i,obj in ipairs(self.obj) do
+			if obj.canselect and obj.visible and obj:Inbox(_event.params[2],_event.params[3]) then 
+				self.selobj = obj 
+				end
+			end
+		end
+		
+	local i,obj = 0,nil
+	for i,obj in ipairs(self.obj) do
+		if obj:Selected() then 
+			obj:Event(_event)
+			end
+		end
+	end
+end
+
+function TWinObj_Paint(self)
+if self.visible then
+	for i,obj in ipairs(self.obj) do
+		obj:Paint()
+		end	
+	end
+end
+
+function TWinObj_RegisterEvents(self,_task)
+_task.eventfilter:AddOnce("key")
+_task.eventfilter:AddOnce("mouse_click")
+for i,obj in ipairs(self.obj) do
+	obj:RegisterEvents(_task)
+	end
+end
+
+function TWinObj_borderwidth(self)
+if self.border then 
+	return 2
+	else
+	return 0
+	end
+end
+
+function TWinObj_right(self)
+return self.left+self.width+self:borderwidth()-1
+end
+
+function TWinObj_bottom(self)
+return self.top+self.height+self:borderwidth()-1
+end
+
+function TWinObj_Inbox(self,ax,ay)
+return (self.left <= ax) and (self.top <= ay) and (self:bottom() >= ay) and (self:right() >= ax)
+end
+
+function TWinObj:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.visible = true
+	self.left = 1
+	self.width = 0
+	self.top = 1
+	self.height = 0
+	self.parent = _parent
+	self.window = _window
+	self.border = true
+	self.canselect = true
+	self.readonly = false
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	if _parent then _parent.obj:Add(self) end
+	self.selobj = nil -- selected obj
+	-- USE COMPLECT INHERITENCE SYTEM BECAUSE I'M TO STUPID
+	-- Currently self.Event if a variable to a function with the current Event function. That function may call self.TEditEvent and that function may call self.TWinObjEvent...
+	self.Event = TWinObj_Event
+	self.Paint = TWinObj_Paint
+	self.RegisterEvents = TWinObj_RegisterEvents
+	self.Selected = TWinObj_Selected
+	self.TWinObjEvent = TWinObj_Event --for inherited :)
+	self.TWinObjPaint = TWinObj_Paint
+	self.TWinObjRegisterEvents = TWinObj_RegisterEvents
+	self.borderwidth = TWinObj_borderwidth
+	self.right = TWinObj_right
+	self.bottom = TWinObj_bottom
+	self.Inbox = TWinObj_Inbox
+end
+
+-- TEdit
+TEdit = classapi.class(TWinObj,"TEdit") 
+
+function TEdit_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	local border = string.rep("-",self.width)
+	if (self:Selected()) then
+		self.text:Blink()
+		else
+		self.text.caretvis = false
+		end
+	local middle = self.text:GetCutText(self.width-2)
+	local a = self.width-2-string.len(middle)	
+	if a > 0 then
+		middle = "[" .. middle .. string.rep(" ",a) .. "]"
+		else
+		middle = "[" .. middle .. "]"
+		end
+	if self.border then
+		self.window:writePos(self.left,self.top,border)
+		self.window:writePos(self.left,self.top+1,middle)
+		self.window:writePos(self.left,self.top+2,border)
+		else
+		self.window:writePos(self.left,self.top,middle)
+		end	
+	end
+end
+
+
+function TEdit_Event(self,_event)
+if self.TWinObjEvent then self:TWinObjEvent(_event) end
+if self:Selected() then
+	if (_event.name == "char") then
+		self.text:Add(_event.params[1])
+		if self.onChange then self:onChange() end
+		elseif (_event.name == "key") then
+			if (_event.params[1] == 14) then -- del
+				self.text:Del()
+				if self.onChange then self:onChange() end
+				end
+			if (_event.params[1] == 203) then -- left arrow
+				self.text:Left()
+				end
+			if (_event.params[1] == 205) then -- right arrow
+				self.text:Right()
+				end
+			if (_event.params[1] == 28) then
+				if self.onClick then self:onClick() end
+				end
+			end
+	end
+end
+
+function TEdit_RegisterEvents(self,_task)
+if self.TWinObjRegisterEvents then self:TWinObjRegisterEvents(_task) end
+_task.eventfilter:AddOnce("char")
+end
+
+function TEdit:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.text = mStrings.TTextChar()
+	self.Paint = TEdit_Paint --for inherited :)
+	self.Event = TEdit_Event
+	self.RegisterEvents = TEdit_RegisterEvents
+	self.TEditPaint = TEdit_Paint
+	self.TEditEvent = TEdit_Event
+	self.TEditRegisterEvents = TEdit_RegisterEvents
+end
+
+-- TCheckbox
+TCheckbox = classapi.class(TWinObj,"TCheckbox") 
+
+function TCheckbox_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	local middle = ""
+	if self.checked then
+		middle = "[X]"
+		else
+		if self:Selected() then
+			middle = "[_]"
+			else
+			middle = "[ ]"
+			end
+		end
+	middle = middle .. " " .. self.caption
+	self.window:writePos(self.left,self.top,middle)
+	end
+end
+
+
+function TCheckbox_Event(self,_event)
+if self.TWinObjEvent then self:TWinObjEvent(_event) end
+if self:Selected() then
+	if (_event.name == "key") and (_event.params[1] == 28) then
+		self.checked = not self.checked
+		if self.onChange then self:onChange() end
+		end
+	end
+end
+
+
+
+function TCheckbox:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.caption = ""
+	self.checked = false
+	self.Paint = TCheckbox_Paint --for inherited :)
+	self.Event = TCheckbox_Event
+	self.TCheckboxPaint = TCheckbox_Paint
+	self.TCheckboxEvent = TCheckbox_Event
+end
+
+-- TLabel
+TLabel = classapi.class(TWinObj,"TLabel") 
+
+function TLabel_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	self.window:writePos(self.left,self.top,self.caption)
+	end
+end
+
+function TLabel:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	self.canselect = false
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.caption = ""
+	self.Paint = TLabel_Paint --for inherited :)
+	self.TLabelPaint = TLabel_Paint
+end
+
+-- TMultiLabel
+TMultiLabel = classapi.class(TWinObj,"TMultiLabel") 
+
+function TMultiLabel_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	--self.window:writePos(self.left,self.top,self.caption)
+	local h = self.height
+	local w = self.width
+	local ty = 1
+	local curline = ""
+	if self.border then
+		curline = "+" .. string.rep("-",self.width) .. "+"
+		self.window:writePos(self.left,self.top,curline , colors.white , colors.black)
+		self.window:writePos(self.left,self.top+h,curline , colors.white , colors.black)
+		end
+		
+	for ty=1,h-1 do
+		curline = self.data:GetLine(ty)
+		a = self.width-string.len(curline)
+		if a > 0 then 
+		   curline = curline .. string.rep(" ",self.width-string.len(curline)) 
+		   end
+		if a < 0 then
+		   curline = string.sub(curline,1,self.width)
+		   end
+		if self.border then
+			curline = "|" .. curline .. "|"
+			end
+		-- audjust color manually because i'm to lazy to rewrite it, also this is more effective :)
+		obj = self.window.l.colors[self.top+ty]
+		obj2 = self.data.colors[ty]
+		bobj = self.window.l.bcolors[self.top+ty]
+		bobj2 = self.data.bcolors[ty]
+		if obj and bobj then
+			if self.border then
+				if obj2 and bobj2 then		
+					for i = 2,string.len(curline)-1 do
+						obj[self.left+i-1] = (obj2[i] or colors.white)
+						bobj[self.left+i-1] = (bobj2[i] or colors.black)
+						end
+					end
+				obj[self.left] = colors.white
+				obj[self.left+string.len(curline)-1] = colors.white
+				bobj[self.left] = colors.black
+				bobj[self.left+string.len(curline)-1] = colors.black
+				else
+				if obj2  and bobj2 then		
+					for i = 1,string.len(curline) do
+						obj[self.left+i-1] = (obj2[i] or colors.white)
+						bobj[self.left+i-1] = (bobj2[i] or colors.black)
+						end
+					end
+				end
+			end
+		self.window:writePos(self.left,self.top+ty,curline)
+		end
+	end
+end
+
+function TMultiLabel:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	self.canselect = false
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.height = 3
+	self.data = mView.Tvwindow()
+	self.data:SetSize(self.width,self.height)
+	self.Paint = TMultiLabel_Paint --for inherited :)
+	self.TMultiLabelPaint = TLabel_Paint
+end
+
+function TMultiLabel:SetSize(_width,_height)
+	self.width = _width
+	self.height = _height
+	self.data:SetSize(self.width,self.height)
+end
+
+
+-- TButton
+TButton = classapi.class(TWinObj,"TButton") 
+
+function TButton_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	local border = string.rep("-",self.width)
+	local middle = self.caption
+	if (self:Selected()) then
+		middle = string.upper(self.caption)
+		end
+	if (self.width-2) < string.len(self.caption) then
+		middle = string.sub(middle,1,(self.width-2))
+		end
+	local a = self.width-2-string.len(middle)	
+	if a > 0 then
+		middle = "[" .. middle .. string.rep(" ",a) .. "]"
+		else
+		middle = "[" .. middle .. "]"
+		end
+	if self.border then
+		self.window:writePos(self.left,self.top,border)
+		self.window:writePos(self.left,self.top+1,middle)
+		self.window:writePos(self.left,self.top+2,border)
+		else
+		self.window:writePos(self.left,self.top,middle)
+		end	
+	end
+end
+
+
+function TButton_Event(self,_event)
+if self.TWinObjEvent then self:TWinObjEvent(_event) end
+if self:Selected() then
+	if (_event.name == "key") and (_event.params[1] == 28) then
+		if self.onClick then self:onClick() end
+		end
+	end
+end
+
+function TButton:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.caption = ""
+	self.Paint = TButton_Paint --for inherited :)
+	self.Event = TButton_Event
+	self.TButtonPaint = TButton_Paint
+	self.TButtonEvent = TButton_Event
+end
+
+-- TScrollbar
+TScrollbar = classapi.class(TWinObj,"TScrollbar") 
+
+function TScrollbar_Paint(self)
+if not self.visible then
+	return
+	end
+if self.TWinObjPaint then self:TWinObjPaint() end
+local awidth = self.width
+if not self.horizontal then
+	awidth = self.height
+	end
+if self.window and (awidth > 2+self.size) then
+	
+	local fak = (awidth-2-self.size)/(self.max-self.min+1)
+	local bar = string.rep("#",self.size or 1)
+	local a = vec3.round(fak*self.pos)
+	local b = awidth-2-a-self.size
+	local sa = ""
+	local sb = ""
+	if a > 0 then sa = string.rep(" ",a) end
+	if b > 0 then sb = string.rep(" ",b) end
+	local middle = "<" .. sa .. bar .. sb .. ">"
+	if self.horizontal then
+		self.window:writePos(self.left,self.top,middle)
+		else
+		local i = 0
+		for i = 1,string.len(middle) do
+			self.window:writePos(self.left,self.top+i-1,string.sub(middle,i,i))
+			end
+		end
+	
+	end
+end
+
+
+function TScrollbar_Event(self,_event)
+if self.TWinObjEvent then self:TWinObjEvent(_event) end
+if self:Selected() then
+	if (_event.name == "key") then
+		if (_event.params[1] == 203) or (_event.params[1] == 200) then
+			self:Dec()
+			end
+		if (_event.params[1] == 205) or (_event.params[1] == 208) then
+			self:Inc()
+			end
+		end
+	if (_event.name == "mouse_click") then
+		local x,y = _event.params[2],_event.params[3]
+		if (x == self.left) and (y == self.top) then
+			self:Dec()
+			else
+			if self.horizontal then
+				if (x == self:right()) and (y == self.top) then
+					self:Inc()
+					else
+					if (x > self.left) and (x < self:right()) and (y == self.top) then
+						local fak = (x-self.left-self.size)/(self.width-2-self.size)
+						self.pos = vec3.round(fak * (self.max-self.min+1) + self.min)
+						if self.onChange then self:onChange() end
+						end
+					end
+				else
+				if (y == self:bottom()) and (x == self.left) then
+					self:Inc()
+					else
+					if (y > self.top) and (y < self:bottom()) and (x == self.left) then
+						local fak = (y-self.top-self.size)/(self.height-2-self.size)
+						self.pos = vec3.round(fak * (self.max-self.min+1) + self.min)
+						if self.onChange then self:onChange() end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function TScrollbar_Inc(self,_event)
+if self.pos < self.max then 
+	self.pos = self.pos + self.increase
+	if self.pos > self.max then
+		self.pos = self.max
+		end
+	if self.onChange then self:onChange() end
+	end
+end
+
+function TScrollbar_Dec(self,_event)
+if self.pos > self.min then 
+	self.pos = self.pos -self.increase
+	if self.pos < self.min then
+		self.pos = self.min
+		end
+	if self.onChange then self:onChange() end
+	end
+end
+
+
+function TScrollbar:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	self.border = false
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.min = 1
+	self.max = 100
+	self.pos = 1
+	self.increase = 1
+	self.size = 1
+	self.horizontal = true
+	self.Paint = TScrollbar_Paint --for inherited :)
+	self.Event = TScrollbar_Event
+	self.Inc = TScrollbar_Inc
+	self.Dec = TScrollbar_Dec
+	self.TScrollbarPaint = TScrollbar_Paint
+	self.TScrollbarEvent = TScrollbar_Event
+end
+
+-- TListbox
+TListbox = classapi.class(TWinObj,"TListbox") 
+
+function TListbox_Paint(self)
+if not self.visible then
+	return
+	end
+
+self.Scrollbar.max = #self.data-self.height+self:borderwidth()
+if self.Scrollbar.max < self.Scrollbar.min then
+	self.Scrollbar.max = self.Scrollbar.min
+	end
+if self.Scrollbar.pos > self.Scrollbar.max then
+	self.Scrollbar.pos = self.Scrollbar.max
+	end
+
+local astr = ""
+if self.TWinObjPaint then self:TWinObjPaint() end
+if self.window and (self.width > 2) then
+	if self.border then
+		astr = string.rep("-",self.width-1)
+		self.window:writePos(self.left,self.top,astr)
+		self.window:writePos(self.left,self.top+self.height,astr)
+		end
+	local i,obj = 1,nil
+	local i2 = 1
+	for i = self.Scrollbar.pos,self.height-2+self.Scrollbar.pos do
+		astr = ""
+		if i <= #self.data then
+			astr = self.data[i]
+			if string.len(astr) > self.width-self:borderwidth() then
+				astr = string.sub(astr,1,self.width-self:borderwidth())
+				end
+			end
+		if string.len(astr) < self.width-self:borderwidth() then
+			astr = astr .. string.rep(" ",self.width-self:borderwidth()-string.len(astr))
+			end
+		if self.border then
+			astr = "|" .. astr
+			end
+		if self.selected == i then
+			self.window:writePos(self.left,self.top+i2,astr,colors.blue)
+			else
+			self.window:writePos(self.left,self.top+i2,astr,colors.white)
+			end
+		
+		i2 = i2 + 1
+		end
+	end
+end
+
+
+function TListbox_Event(self,_event)
+if self.TWinObjEvent then self:TWinObjEvent(_event) end
+if self:Selected() then
+	if _event.name == "mouse_click" then
+		local y = _event.params[3]-self.top + self.Scrollbar.pos - 1
+		if (y > 0) and (#self.data >= y) then	
+			local x = _event.params[2]-self.left
+			local l = string.len(self.data[y])
+			if (x > 0) and (x < l) and (y ~= self.selected) then
+				local old = self.selected
+				self.selected = y
+				if self.onSelectionChange then self.onSelectionChange(old) end	
+				end
+			end
+		end
+	end
+end
+
+
+function TListbox_Resize(self,_event)
+self.Scrollbar.left = self:right()-self:borderwidth()
+self.Scrollbar.top = self.top
+self.Scrollbar.height = self.height+1
+end
+
+function TListbox:__init(_name,_parent,_window)
+	self.name = _name or ""
+	self.parent = _parent
+	self.window = _window
+	if _parent then _parent.obj:Add(self) end
+	self.obj = vec3.TList() -- WinObjs in a Window !
+	self.width = 5
+	self.selected = -1
+	self.onSelectionChange = nil
+	self.data = vec3.TList() 
+	self.Paint = TListbox_Paint --for inherited :)
+	self.Event = TListbox_Event
+	self.TListboxPaint = TListbox_Paint
+	self.TListboxEvent = TListbox_Event
+	self.Resize = TListbox_Resize
+	
+	self.Scrollbar = winobj.TScrollbar("TScrollbar",self,self.window)
+	self.Scrollbar.horizontal = false
+	self.Scrollbar.width = 1
+	self:Resize()
+end

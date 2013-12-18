@@ -1,0 +1,77 @@
+--mMultiOS
+--<~t<true>marcelOS<info<0||name<0|accManage>version<1|0.1>changePrint<2|true>eventfilter<0|key|window_resize|window_fullscreen>EventManager<3|true>>code<0|~i<36>print("Hello, i run under marcelOS")>>other<info<0||name<0|accManage>version<2|0.1>>code<0|~i<23>print("Unknown OS ...")>>>
+Application.window  =  windows.CreateWindow( Application.name , Application , true) 
+Application.window:SetSize(26,12)
+
+local Edit1 = winobj.TEdit("Edit1",Application.window,Application.window)
+Edit1.width = 25
+Edit1.top = 1
+Edit1.left = 1
+Application.window:RegisterEvents(Application) 
+
+local History = vec3.TList(2)
+local Hindex = 1
+History[1] = "" -- current
+
+function getEvent(_event)
+if ((_event.name == "window_resize") or (_event.name == "window_fullscreen")) then
+	Edit1.width = Application.window.width
+	end
+if (_event.name == "key") then
+	local _p = 0
+	if (_event.params[1] == 200) or (_event.params[1] == 208) then
+		if Hindex == 1 then
+			History[1] = Edit1.text.text
+			end
+		if (_event.params[1] == 200) then
+			_p , Hindex = History:Inc(Hindex)
+			else
+			_p , Hindex = History:Dec(Hindex)
+			end
+		Edit1.text:SetText(History[Hindex])
+	elseif (_event.params[1] == 28) then
+			Hindex = 1
+			local s = Edit1.text.text
+			Edit1.text:SetText("")
+			History:Insert(s,2)
+			Application.window.l:clear()
+			Application.window.l.CursorY = 4
+			
+			local nForcePrint = 0
+			local func, e = loadstring( s, "lua" )
+			local func2, e2 = loadstring( "return "..s, "lua" )
+			
+			if func2 then
+				if not func then
+					e = nil
+					nForcePrint = 1
+					end
+				func = func2	
+				end
+			
+			if func then
+				local tResults = { pcall(func) }
+				if tResults[1] then
+					local n = 1
+					while (tResults[n + 1] ~= nil) or (n <= ta) do
+						local as = tostring( tResults[n + 1] )
+						 Application.window:print( as )
+						n = n + 1
+						end
+					else
+					Application.window:print( tResults[2] )
+					end
+				else
+				Application.window:print( e )
+				end
+			end
+	end
+end
+
+
+Application.window:print( "Interactive CMD prompt.")
+while true do
+	mTask.sleepEvent(Application,2)
+	EventHandle()
+	Application.window:Paint()
+	end

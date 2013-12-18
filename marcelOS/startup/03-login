@@ -1,0 +1,3 @@
+-- Login // Open OS so no Login Acc needed
+
+sleep(0.1) -- Debugausgabe anschauen + sleep zumied kein "To long without yieling"

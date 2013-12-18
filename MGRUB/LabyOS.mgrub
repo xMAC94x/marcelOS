@@ -1,0 +1,7 @@
+name LabyOS
+owner LabyStudio
+lastboot 23.282
+bootcount 2
+bootfile LabyOS
+version 1.4
+checkInstall /Laby

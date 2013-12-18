@@ -1,0 +1,17 @@
+-- Load AUTOSTART
+local REIHE = {"DHCPregister","explorer","taskmanager","debugger"}
+local asROOT = {true,true,true,true}
+
+local co = nil
+sleep(0.1) -- NO ERROR !
+for i,obj in ipairs( REIHE ) do 
+	co,cosu = mTask.CreateTask(obj,asROOT[i])
+	co.file = path.AUTORUN() .. "/" .. obj
+	co.args:Add("autostart")
+	co.rt_fak = 10
+	if asROOT[i] and (cosu ~= nil) then 
+		cosu:sudoRun()
+		else
+		co:run()
+		end
+	end

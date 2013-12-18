@@ -1,0 +1,60 @@
+local count = 0
+local Arg = {...}
+Application.useevents = true
+Application.window:SetSize(40,20)
+Application.window:FindSpace(111)
+local i,obj = 0
+local mystring = "X"
+local astr = "X - O I / \ _ - | H L R F"
+
+
+local function getEvent(_event)
+if (_event.name == "mouse") then
+	local posx = _event.params[2]
+	local posy = _event.params[3]
+	if posy > 4 then
+		Application.window:writePos(posx,posy,mystring)
+		else
+		if posx > string.len(astr) then
+			mystring = " "
+			else	
+			mystring = string.char(string.byte(astr,posx))
+			end
+		end
+	end
+end
+
+local function EventHandle()
+local i,obj = 0
+for i, obj in ipairs(Application.events) do
+	getEvent(obj)
+	Application.events[i] = nil
+	end
+end
+
+local function Load(path)
+if fs.exists(path) then
+	
+	local file = fs.open(path,"r")
+	local sLine = file.readLine()
+	local n = 4
+	Application.window.l:clear()
+	while sLine do
+		Application.window:writePos(1,n,sLine)
+		sLine = file.readLine()
+		n = n + 1
+		end
+	file.close()
+	
+	end
+end
+
+Load(Arg[1])
+
+while true do
+	Application.window:writePos(1,1,"SAVE")
+	Application.window:writePos(1,2,"Color " .. astr)
+	Application.window:writePos(1,3,"......................................................................................")
+	EventHandle()
+	sleep(0.05)
+	end

@@ -1,0 +1,321 @@
+local trustDHCP = {}
+local DNS = {}
+UsedChannel = 1
+OwnIP = nil
+boot.BootMsg("starting ip")
+
+TipCon = classapi.class(nil,"TipCon") 
+function TipCon:__init(_ip)
+	self.ip = _ip
+	self.server = Legal(_ip)
+	self.pos = {0/0,0/0,0/0}
+	self.moving = false -- anderer Timeout bei "moving"
+	self.lastping = os.clock()
+	self.meta_own = false -- Ob der angegebene Meta Wert von der Con selber stammmt... Wenn ja, dann ist er "gültiger" als wenn er von nem anderen Server gebracht wird :)
+	self.con = vec3.TList()
+	self.entf = -1 --only change on direct conntact !!!
+	self.parents = {} -- Alle PC die Zum PC connected sind !!!
+end
+
+function TipCon:Add(_ip)
+local new = TipCon(_ip)
+self.con:Add(new)
+vec3.AddCon(new.parents,self)
+return new
+end
+
+function TipCon:tostring()
+local result = ""
+local p = ehtf.THTNode()
+local o = nil
+local i,obj = 0,nil
+p:Add("ip",self.ip)
+p:Add("server",ehtfutils.toboolean(self.server))
+p:Add("moving",self.moving)
+p:Add("pos",{self.pos[1],self.pos[2],self.pos[3]})
+o = p:Add("con","")
+if self.con  ~= nil then
+	for i,obj in ipairs(self.con) do
+		o:SValuesS(i,obj:tostring()) 
+		end
+	end
+result = p:ToStr()
+return result
+end
+
+function TipCon:LoadfromString( astring , direct) -- set direct to false if the message doesn't came from the original computer...
+-- adding a new con
+local p = ehtf.THTNode()
+local o = nil
+local aint = 0
+local cur = nil
+local astr = ""
+local i,obj = 0,nil
+local i2,obj2 = 0,nil
+local a,b,c = 0
+local dochange = direct or (direct == nil) or (not self.meta_own)
+
+p:FromStr( astring )
+o = p:FindAboutC("ip")
+if o then
+	aint = o:SValuesI(1)
+	if aint == os.computerID() then -- Nobody says what you should think :)
+		return OwnIP
+		end
+	end
+	
+-- Search CON and Add to current or create new
+for i,obj in ipairs(self.con) do
+	if obj.ip == aint then
+		cur = obj
+		-- delet current conections if cur...
+		if dochange then
+			cur.con = vec3.TList()
+			end
+		break
+		end
+	end
+if cur == nil then
+	a,cur,c = OwnIP:GetDHCP(aint) -- currently only 1 instance but only one pointer
+	if cur then
+		--vec3.AddCon(cur.parents,self)
+		--vec3.AddCon(self.con,cur)
+		end
+	end
+if cur == nil then
+	cur = self:Add(aint)
+	end
+
+if dochange then
+	if direct then 
+		-- attention, once it is true it can't be false any more... Currently the Con wil be deletet if it is not in direct range, so it will be set again to false...
+		cur.meta_own = true
+		end
+	cur.ip = aint
+	o = p:FindAboutC("server")
+	if o then
+		cur.server = (o:SValuesB(1) or (vec3.contains(trustDHCP,aint))) -- ich glaub dem Sender einfach mal das er vertrauenswürdig ist...
+		end
+	o = p:FindAboutC("moving")
+	if o then
+		cur.moving = o:SValuesB(1) -- ich glaub dem Sender einfach mal das er vertrauenswürdig ist...
+		end
+	o = p:FindAboutC("pos")
+	if o then
+		cur.pos = {o:SValuesI(1), o:SValuesI(2), o:SValuesI(3)}
+		end
+	end
+o = p:FindAboutC("con")
+if o then
+	for i2,obj2 in ipairs(o.nodes) do
+		cur:LoadfromString( obj2:ToStr() , false)		
+		end
+	end
+	
+return cur
+end
+
+function TipCon:GetDHCP_C(_ip) -- only search childs... --parentClass, selfClass , pos
+for i,obj in ipairs(self.con) do
+	if tostring(obj.ip) == tostring(_ip) then
+		return self , obj , i
+		end
+	end
+return nil , nil , -1
+end
+
+
+function TipCon:GetDHCP(_ip) --parentClass, selfClass , pos
+for i,obj in ipairs(self.con) do
+	if tostring(obj.ip) == tostring(_ip) then
+		return self , obj , i
+		end
+	end
+for i,obj in ipairs(self.con) do
+	local a,b,c = obj:GetDHCP(_ip)
+	if b then
+		return a , b , c
+		end
+	end
+return nil , nil , -1
+end
+
+function TipCon:GetSendDHCP(_ip) -- ParentIP or _ip , parent of IP, selfClass of IP
+for i,obj in ipairs(self.con) do
+	if tostring(obj.ip) == tostring(_ip) then
+		return _ip , self , obj , i
+		end
+	end
+for i,obj in ipairs(self.con) do
+	local a,b,c = obj:GetDHCP(_ip)
+	if b then
+		return obj.ip , obj , b , c
+		end
+	end
+return _ip , nil , nil , -1
+end
+
+function GetDHCP(_ip)
+-- ändert self
+local a,b,c = OwnIP:GetDHCP(_ip)
+if c == OwnIP then
+	a = _ip
+	b = true
+	c = self
+	end
+return a,b,c
+end
+
+function StandartRegister()
+trustDHCP = {}
+DNS = {}
+
+local i,obj = 0,nil
+local p = ehtf.THTNode()
+local o,o2 = nil,nil
+p:LoadfromFile(path.C(path.DATA(),"ip/settings"))
+o = p:FindAboutC("DHCP")
+if o then
+	for i,obj in ipairs(o.Values) do
+		trustDHCP[i] = o:SValuesI(i)
+		end
+	end
+o = p:FindAboutC("DNS")
+if o then
+	for i,obj in ipairs(o.nodes) do
+		DNS[i] = {tostring(obj.about), tonumber(obj:SValuesI(i))}
+		end
+	end
+end
+
+function GetIP(_dns)
+local i,obj = 0
+for i,obj in ipairs(DNS) do
+	if obj[1] and (string.lower(obj[1]) == string.lower(_dns or "") )then
+		return tonumber(obj[2])
+		end
+	end
+return (tonumber(_dns) or _dns)
+end
+
+function Legal(_sender)
+local a,b = vec3.contains(trustDHCP,_sender)
+return a
+end
+
+function HasModem()
+local i,obj = 0
+for i,obj in ipairs(mperipheral.Peripherals) do
+    if obj.type == "modem" then
+	   return true
+       end
+    end
+return false
+end
+
+function Ping(_ServerIP)
+SendMessage(nil,_ServerIP,nil,-1,"Ping",tostring(os.time()))
+end
+
+function PingAll()
+SendMessage(nil,nil,nil,-1,"Ping",tostring(os.time()))
+end
+
+function DHCPMessage(_ClientIP , _ServerIP , _DHCP ,_port, _meta , _msg)
+local result = false
+local i = GetIP(_ServerIP)
+
+-- Checken ob Ping
+if (tonumber(_port) == -1) and ((_ServerIP == "") or (tonumber(os.computerID()) == tonumber(i))) then
+	SendMessage(nil, _ClientIP, nil,-2,_meta, _msg .. " " ..tostring(os.time()))
+	result = true
+-- Checken ob DHCP
+elseif (tonumber(os.computerID()) ~= tonumber(i)) and (_ServerIP ~= "") then
+	SendMessage(_ClientIP, _ServerIP, nil,_port,_meta, _msg)
+	result = true
+	end
+	
+	
+return result
+end
+
+
+function SendMessage(_ClientIP, _ServerIP, _DHCP,_port,_meta, _msg)
+if _ClientIP ~= nil then _ClientIP = GetIP(_ClientIP) end
+_ServerIP = GetIP(_ServerIP)
+RawSendMessage(_ClientIP, _ServerIP, _DHCP,_port,_meta, _msg)
+end
+
+function RawSendMessage(_ClientIP, _ServerIP, _DHCP,_port,_meta, _msg)
+local tosend = "" 
+local toall = (_ServerIP == nil)
+local b = true
+if _ClientIP == nil then _ClientIP = tonumber(os.computerID()) end
+if (_DHCP == nil) and (not toall) then 
+	_DHCP,b = OwnIP:GetSendDHCP(_ServerIP)
+	end
+if _msg and _ClientIP and (_DHCP or toall) then 
+	tosend = string.len(_ClientIP  or "") .. "/" .. 
+			 string.len(_ServerIP  or "") .. "/" .. 
+			 string.len(_port  or "") .. "/" .. 
+			 string.len(_meta  or "") .. "/" .. 
+			 (_ClientIP or "") .. 
+			 (_ServerIP or "") .. 
+			 (_port or "") .. 
+			 (_meta or "") .. 
+			 (_msg or "")
+	if toall then 
+		rednet.broadcast(tosend)
+		else
+		rednet.send(tonumber(_DHCP or 0),tosend)
+		end
+	return true , _ClientIP, _ServerIP, _DHCP,_port,_meta, _msg
+	else
+	return false , _ClientIP, _ServerIP, _DHCP,_port,_meta, _msg
+	end
+end
+
+
+function GetMessage(_rawmsg)
+local a,b,c,d = ""
+local _ServerIP = ""
+local _ClientIP = ""
+local _msg = ""
+local begin,begin2,begin3,begin4,begin5  = 0
+local _meta = ""
+local _port = ""
+local nr1,nr2,nr3,nr4 = 0
+for a,b,c,d in string.gmatch(_rawmsg, "(%w+)/(%w+)/(%w+)/(%w+)/") do
+	
+	nr1 = tonumber(a)
+	nr2 = tonumber(b)
+	nr3 = tonumber(c)
+	nr4 = tonumber(d)
+	if nr1 == nil then return "Error",nil,nil,nil,nil,false end
+	if nr2 == nil then return nil,"Error",nil,nil,nil,false end
+	if nr3 == nil then return nil,nil,"Error",nil,nil,false end
+	if nr4 == nil then return nil,nil,nil,"Error",nil,false end
+	
+	begin = string.len(a.."/"..b.."/"..c.."/"..d.."/")
+	begin2 = begin + nr1
+	begin3 = begin2 + nr2
+	begin4 = begin3 + nr3
+	begin5 = begin4 + nr4
+	_ClientIP = string.sub(_rawmsg,begin+1,begin2)
+	_ServerIP = string.sub(_rawmsg,begin2+1,begin3)
+	_port = string.sub(_rawmsg,begin3+1,begin4)
+	_meta = string.sub(_rawmsg,begin4+1,begin5)
+	_msg = string.sub(_rawmsg,begin5+1)
+	return _ClientIP , _ServerIP , _port, _meta , _msg  , true
+	end
+return nil,nil,nil,nil,nil,false
+end
+
+OwnIP = TipCon(tonumber(os.getComputerID()))
+
+function API_Initial()
+StandartRegister()
+new = events.CreateEvent("Initialised","ip", "ip")
+mTask.RawRaiseEvent(new)
+end
+
