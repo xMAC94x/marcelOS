@@ -12,25 +12,25 @@
 [3.85]starting Peripherals
 [4.1]starting drivers
 [4.35]starting ip
-[4.65]starting lps
-[4.9]starting mView
-[5.15]starting winobj
-[5.4]starting windows
-[5.65]starting mTaskModify
-[5.9]starting mTask
-[6.15]starting programs
-[6.65]starting mgps
-[6.9]starting sha1
-[7.25]Initial all APIS
-[7.25]Driver 'driver_01windowconverter' v.:0.1
-[7.25]Driver 'driver_IP' v.:0.1
-[7.25]Driver 'driver_mView' v.:0.1
-[7.25]Driver 'driver_peripheral' v.:0.1
-[7.25]Driver 'driver_peripheralcable' v.:0.1
-[7.25]Driver 'driver_turtle' v.:0.1
-[7.25]Driver 'driver_windows' v.:0.1
-[7.55]addTerm
-[7.7]sudo-prg  /marcelOS/autorun/DHCPregister
-[7.7]sudo-arg  autostart
-[7.8]sudo-prg  /marcelOS/autorun/explorer
-[7.8]sudo-arg  autostart
+[4.6]starting lps
+[4.85]starting mView
+[5.1]starting winobj
+[5.35]starting windows
+[5.6]starting mTaskModify
+[5.85]starting mTask
+[6.1]starting programs
+[6.6]starting mgps
+[6.85]starting sha1
+[7.2]Initial all APIS
+[7.2]Driver 'driver_01windowconverter' v.:0.1
+[7.2]Driver 'driver_IP' v.:0.1
+[7.2]Driver 'driver_mView' v.:0.1
+[7.2]Driver 'driver_peripheral' v.:0.1
+[7.2]Driver 'driver_peripheralcable' v.:0.1
+[7.2]Driver 'driver_turtle' v.:0.1
+[7.2]Driver 'driver_windows' v.:0.1
+[7.25]addTerm
+[7.35]sudo-prg  /marcelOS/autorun/DHCPregister
+[7.35]sudo-arg  autostart
+[7.35]sudo-prg  /marcelOS/autorun/explorer
+[7.35]sudo-arg  autostart

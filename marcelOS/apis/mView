@@ -90,6 +90,7 @@ if i < #self.lines[y] then
 	end
 l_max = g_max - g_begin + 1
 l_cur = x - g_begin + 1
+return g_begin, g_end, g_max, l_cur, l_end, l_max
 end
 
 
@@ -106,7 +107,7 @@ for i = 1,#self.lines[y] do
 		maxpos = self.width
 		end
 	if (x >= curpos) and (x <= maxpos) then
-		return i, curpos , maxpos
+		return i
 		end
 	end
 if (x > self.width) or (x < 1) then
@@ -118,25 +119,33 @@ end
 function Tvwindow:delNextStrings(x, y, count)
 -- returns the current line index of x,y  .   
 -- deletes count chart, starting with x !
-local i, curpos, maxpos = self:findLine(x,y)
-local firstchar,lastchar = 0,0
+local i = self:findLine(x,y)
+local g_begin, g_end, g_max, l_cur, l_end, l_max
 local diff = 0
 local ax = 0
 if i > 0 then
-    firstchar = curpos - self.lines[y][i][1] + 1
-	lastchar  = maxpos - self.lines[y][i][1] + 1
-	diff = lastchar - diff
+    g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
+	diff = ( l_cur + count - 1 ) - l_max
 	if diff > 0 then
-		--past nicht
-		count = count - string.len(self.lines[y][i][2])
+		--doen't fit, recursive
+		count = count - ( l_max - l_cur + 1 )
 		self.lines[y]:Del(i)
-		self:delNextStrings(x,y, count)
+		self:delNextStrings(g_max + 1,y, count)
 	elseif diff < 0 then
-	    --teilweise
 	
+	    --only a part has to be deletet
+		-- make test if l_max = l_end, maybe i could delete all...
+		diff = ( l_cur + count - 1 ) - l_end
+		if diff >= 0 then
+			self.lines[y]:Del(i) -- del line
+			else
+			-- del count
+			self.lines[y][i][1] = self.lines[y][i][1] + count
+			self.lines[y][i][2] = string.sub(self.lines[y][i][2],self.lines[y][i][1])
+			end
 	else
-	    --genau
-		self.lines:Del(i)
+	    --fits pefect
+		self.lines[y]:Del(i)
 	end
 
 	end
@@ -154,23 +163,26 @@ if (x < 1) then
 	x = 1
 	end
 local i,i2,i3 = 0,0,0
-local curpos = 0
-local maxpos = 0
+local g_begin, g_end, g_max, l_cur, l_end, l_max
 local offset = 0
 local diff = 0
 local atext = ""
 local length = string.len(text)
 local lastchar = 0 -- last char of current thingy if i just add the text
 
-i, curpos, maxpos = self:findLine(x,y)
-if (i > 0) and curpos then
+i = self:findLine(x,y)
+
+if (i > 0) then
+    g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
 	-- It fit's in, test colors !
 	if (self.lines[y][i][3] == color) and (self.lines[y][i][4] == bgcolor) then
 		-- ok
-		offset = x-curpos+1
-		lastchar = offset+length-1
+		--offset = x-l_cur+1
+		--lastchar = offset+length-1
+		offset = l_cur
+		lastchar = l_max
 		-- Adding
-		if lastchar >= maxpos then
+		if lastchar >= l_max then
 			if offset > 1 then
 				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,offset-1) .. text
 				else
@@ -180,11 +192,11 @@ if (i > 0) and curpos then
 			if offset > 1 then
 				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,offset-1) .. text .. string.sub(self.lines[y][i][2],lastchar+1,maxpos)
 				else
-				self.lines[y][i][2] = text .. string.sub(self.lines[y][i][2],lastchar+1,maxpos)
+				self.lines[y][i][2] = text .. string.sub(self.lines[y][i][2],lastchar+1,l_max)
 				end
 			end
 		-- Checking next
-		if lastchar > maxpos then
+		if lastchar > l_max then
 			-- recursiv !!
 			atext = string.sub(self.lines[y][i][2],1,offset-1)
 			
