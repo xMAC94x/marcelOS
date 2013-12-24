@@ -80,6 +80,9 @@ end
 function Tvwindow:getLineInfo(i, x, y)
 -- returns the current line index of x,y  .   
 local g_begin, g_end, g_max, l_cur, l_end, l_max
+print(y , ' ' , i)
+print(vec3.PrintVec(self.lines[y][i]))
+sleep(0.4)
 g_begin = self.lines[y][i][1]
 l_end = string.len(self.lines[y][i][2])
 g_end = g_begin + l_end -1
@@ -164,7 +167,6 @@ if (x < 1) then
 	end
 local i,i2,i3 = 0,0,0
 local g_begin, g_end, g_max, l_cur, l_end, l_max
-local offset = 0
 local diff = 0
 local atext = ""
 local length = string.len(text)
@@ -172,25 +174,54 @@ local lastchar = 0 -- last char of current thingy if i just add the text
 
 i = self:findLine(x,y)
 
-if (i > 0) then
+if (i > 0) then   	
+	-- make space
+	self:delNextStrings(x,y,length)
+	-- Update Line
+	i = self:findLine(x,y)
     g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
+	-- Check if i can add to cur or have to make new
+	if (self.lines[y][i][3] == color) and (self.lines[y][i][4] == bgcolor) then
+	    --add to cur
+		lastchar = l_end + length - 1
+		if lastchar >= l_max then
+			if l_cur > 1 then
+				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,l_cur-1) .. text
+				else
+				self.lines[y][i][2] = text
+				end
+			else
+			if l_cur > 1 then
+				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,l_cur-1) .. text .. string.sub(self.lines[y][i][2],lastchar+1)
+				else
+				self.lines[y][i][2] = text .. string.sub(self.lines[y][i][2],lastchar+1)
+				end
+			end
+		else
+		-- make new
+		local new = {x,text,color , bgcolor}
+	    self.lines[y][#self.lines[y]+1] = new  --test -- error --deactivate
+		end
+	
+	
+	--[[
+	
 	-- It fit's in, test colors !
 	if (self.lines[y][i][3] == color) and (self.lines[y][i][4] == bgcolor) then
 		-- ok
 		--offset = x-l_cur+1
 		--lastchar = offset+length-1
-		offset = l_cur
-		lastchar = l_max
+		lastchar = l_end + length - 1
 		-- Adding
 		if lastchar >= l_max then
-			if offset > 1 then
-				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,offset-1) .. text
+			if l_cur > 1 then
+				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,l_cur-1) .. text
 				else
 				self.lines[y][i][2] = text
 				end
 			else
-			if offset > 1 then
-				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,offset-1) .. text .. string.sub(self.lines[y][i][2],lastchar+1,maxpos)
+			if l_cur > 1 then
+				self.lines[y][i][2] = string.sub(self.lines[y][i][2],1,l_cur-1) .. text .. string.sub(self.lines[y][i][2],lastchar+1,maxpos)
 				else
 				self.lines[y][i][2] = text .. string.sub(self.lines[y][i][2],lastchar+1,l_max)
 				end
@@ -198,7 +229,7 @@ if (i > 0) then
 		-- Checking next
 		if lastchar > l_max then
 			-- recursiv !!
-			atext = string.sub(self.lines[y][i][2],1,offset-1)
+			atext = string.sub(self.lines[y][i][2],1,l_cur-1)
 			
 			
 			else
@@ -210,182 +241,9 @@ if (i > 0) then
 		local new = {x,text,color , bgcolor}
 		self.lines[y][#self.lines[y]+1] = new  --test -- error --deactivate
 		end
-
-	end
-	
-
-	
-	--[[
-local astr = (self.lines[y] or "")
-local i = 0
-for i = 1,#self.lines[y] do
-	if self.lines[y][i][1] == x
-	end
-self.lines[y] = string.sub(astr,1,x-1) .. text .. string.sub(astr,x+string.len(text))
-if color and bgcolor then
-	if not self.colors[y] then 
-		self.colors[y] = {}
-		end
-	if not self.bcolors[y] then 
-		self.bcolors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.colors[y][i] = color
-		self.bcolors[y][i] = bgcolor
-		end	
-elseif color then
-	if not self.colors[y] then 
-		self.colors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.colors[y][i] = color
-		end	
-elseif bgcolor then
-	if not self.bcolors[y] then 
-		self.bcolors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.bcolors[y][i] = bgcolor
-		end	
-	end
---]]
-end
-
---[[
-
-function Tvwindow:__init()
-	self.width = 0
-	self.height = 0
-	self.CursorX = 1
-	self.CursorY = 1
-	self.FontColor = colors.white
-	self.BackColor = colors.black
-	self.lines = {}
-	self.colors = {}
-	self.bcolors = {}
-end
-
-function Tvwindow:clear()
-local i = 0
-local i2 = 0
-local atext = string.rep(" ",self.width)
-for i =1,self.height do
-	self.lines[i] = atext
-	self.colors[i] = {}
-	self.bcolors[i] = {}
-	for i2=1,self.width do
-		self.colors[i][i2] = colors.white
-		self.bcolors[i][i2] = colors.black
-		end
-	end
-self.CursorX = 1
-self.CursorY = 1
-end
-
-function Tvwindow:clearLine()
-local atext = string.rep(" ",self.width)
-local i = 1
-self.lines[self.CursorY] = atext
-self.colors[self.CursorY] = {}
-self.bcolors[self.CursorY] = {}
-for i=1,self.width do
-	self.colors[self.CursorY][i] = colors.white
-	self.bcolors[self.CursorY][i] = colors.black
-	end
-self.CursorX = 1
-end
-
-
-function Tvwindow:SetSize(x,y)
-local atext = ""
-local i,i2 = 0,0
-if (x - self.width) > 1 then
-	atext = string.rep(" ",x - self.width)
-	for i =1,self.height do
-		self.lines[i] = self.lines[i] .. atext
-		for i2=self.width+1,x do
-			self.colors[i][i2] = colors.white
-			self.bcolors[i][i2] = colors.black
-			end
-		end
-	end
-if x > 0 then
-	atext = string.rep(" ",x)
-	for i =self.height+1,y do
-		self.lines[i] = atext
-		self.colors[i] = {}
-		self.bcolors[i] = {}
-		for i2=1,x do
-			self.colors[i][i2] = colors.white
-			self.bcolors[i][i2] = colors.black
-			end
-		end
-	end
-self.width = x
-self.height = y
-end
-
-function Tvwindow:valid(x,y)
-return (y > 0) and (y <= self.height) and (x > 0) and (x <= self.width)
-end
-
-function Tvwindow:ClearChars( acount )
-if acount > 0 then
-	local text = string.rep(" ",acount)
-	self.CursorX = self.CursorX - acount
-	self:writePos(self.CursorX,self.CursorY,text)
+	--]]	
 	end
 end
-
-function Tvwindow:write( text)
-self:writePos(self.CursorX,self.CursorY,text , self.FontColor , self.BackColor )
-self.CursorX = self.CursorX + string.len(text)
-end
-
-function Tvwindow:print( text )
-self:writePos(self.CursorX,self.CursorY,text , self.FontColor , self.BackColor  )
-self.CursorX = 1
-self.CursorY = self.CursorY + 1
-end
-
-function Tvwindow:writePos(x, y ,text , color , bgcolor )
-text = tostring(text or "")
-if (x < 1) then
-	text = string.sub(text,2-x)
-	x = 1
-	end
-local astr = (self.lines[y] or "")
-local i = 0
-self.lines[y] = string.sub(astr,1,x-1) .. text .. string.sub(astr,x+string.len(text))
-if color and bgcolor then
-	if not self.colors[y] then 
-		self.colors[y] = {}
-		end
-	if not self.bcolors[y] then 
-		self.bcolors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.colors[y][i] = color
-		self.bcolors[y][i] = bgcolor
-		end	
-elseif color then
-	if not self.colors[y] then 
-		self.colors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.colors[y][i] = color
-		end	
-elseif bgcolor then
-	if not self.bcolors[y] then 
-		self.bcolors[y] = {}
-		end
-	for i = x,x+string.len(text)-1 do
-		self.bcolors[y][i] = bgcolor
-		end	
-	end
-
-end
---]]
 
 function Tvwindow:GetLine(y)
 if (y > 0) and (y <= self.height) then
@@ -825,7 +683,8 @@ function TScreen:PreRender()
 local t = self.pos:Size()
 self.l.width = t[1] 
 self.l.height = t[2]
-self.l:clear()for y = 1,t[2] do
+self.l:clear()
+for y = 1,t[2] do
 	self.info[y] = {}
 	for x = 1,t[1] do
 		self.info[y][x] = {}
@@ -943,7 +802,7 @@ for _y = 1,#self.info do
 				p.setBackgroundColor(obj[4])
 				p.setTextColor(obj[3])
 				end
-			p.write(obj[2])
+			p.write('#' .. obj[2])
 			end
 	    --[[
 		la = nil
