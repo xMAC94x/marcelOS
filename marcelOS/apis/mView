@@ -80,9 +80,6 @@ end
 function Tvwindow:getLineInfo(i, x, y)
 -- returns the current line index of x,y  .   
 local g_begin, g_end, g_max, l_cur, l_end, l_max
-print(y , ' ' , i)
-print(vec3.PrintVec(self.lines[y][i]))
-sleep(0.4)
 g_begin = self.lines[y][i][1]
 l_end = string.len(self.lines[y][i][2])
 g_end = g_begin + l_end -1
@@ -110,7 +107,7 @@ for i = 1,#self.lines[y] do
 		maxpos = self.width
 		end
 	if (x >= curpos) and (x <= maxpos) then
-		return i
+		return i , true
 		end
 	end
 if (x > self.width) or (x < 1) then
@@ -122,11 +119,11 @@ end
 function Tvwindow:delNextStrings(x, y, count)
 -- returns the current line index of x,y  .   
 -- deletes count chart, starting with x !
-local i = self:findLine(x,y)
+local i, iexists = self:findLine(x,y)
 local g_begin, g_end, g_max, l_cur, l_end, l_max
 local diff = 0
 local ax = 0
-if i > 0 then
+if (i > 0) and (iexists) then
     g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
 	diff = ( l_cur + count - 1 ) - l_max
 	if diff > 0 then
@@ -134,23 +131,25 @@ if i > 0 then
 		count = count - ( l_max - l_cur + 1 )
 		self.lines[y]:Del(i)
 		self:delNextStrings(g_max + 1,y, count)
-	elseif diff < 0 then
-	
+	   elseif diff < 0 then
 	    --only a part has to be deletet
 		-- make test if l_max = l_end, maybe i could delete all...
 		diff = ( l_cur + count - 1 ) - l_end
 		if diff >= 0 then
 			self.lines[y]:Del(i) -- del line
-			else
+	       else
 			-- del count
 			self.lines[y][i][1] = self.lines[y][i][1] + count
 			self.lines[y][i][2] = string.sub(self.lines[y][i][2],self.lines[y][i][1])
 			end
-	else
+	   else
 	    --fits pefect
 		self.lines[y]:Del(i)
-	end
-
+	   end
+    else
+	
+	
+	
 	end
 end
 
@@ -165,24 +164,25 @@ if (x < 1) then
 	text = string.sub(text,2-x)
 	x = 1
 	end
-local i,i2,i3 = 0,0,0
+local i,i2,i3, iexists  = 0,0,0,0
 local g_begin, g_end, g_max, l_cur, l_end, l_max
 local diff = 0
 local atext = ""
 local length = string.len(text)
 local lastchar = 0 -- last char of current thingy if i just add the text
 
-i = self:findLine(x,y)
+i, iexists = self:findLine(x,y)
 
-if (i > 0) then   	
+if (i > 0) and iexists then   	
 	-- make space
 	self:delNextStrings(x,y,length)
 	-- Update Line
-	i = self:findLine(x,y)
-    g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
+	i, iexists = self:findLine(x,y) -- maybe the line doesn#t exist any more
+	
 	-- Check if i can add to cur or have to make new
-	if (self.lines[y][i][3] == color) and (self.lines[y][i][4] == bgcolor) then
+	if iexists and (self.lines[y][i][3] == color) and (self.lines[y][i][4] == bgcolor) then
 	    --add to cur
+		g_begin, g_end, g_max, l_cur, l_end, l_max = self:getLineInfo(i, x, y)
 		lastchar = l_end + length - 1
 		if lastchar >= l_max then
 			if l_cur > 1 then
@@ -200,7 +200,12 @@ if (i > 0) then
 		else
 		-- make new
 		local new = {x,text,color , bgcolor}
-	    self.lines[y][#self.lines[y]+1] = new  --test -- error --deactivate
+		if iexists then
+			self.lines[y]:Insert(new, i+1 )
+			else
+			self.lines[y]:Insert(new, i )
+			end
+	    --self.lines[y][#self.lines[y]+1] = new  --test -- error --deactivate
 		end
 	
 	
@@ -247,7 +252,9 @@ end
 
 function Tvwindow:GetLine(y)
 if (y > 0) and (y <= self.height) then
-	return (self.lines[y] or "")
+    --ERROR
+	return "ERROR"
+	--return (self.lines[y] or "")
 	else
 	return ""
 	end
@@ -256,7 +263,8 @@ end
 function Tvwindow:SetLine(y,text)
 if (y > 0) and (y <= self.height) then
 	local atext = string.rep(" ",self.width-string.len(text))
-	self.lines[y] = text..atext
+    self.lines[y] = vec3.TList(2)
+    self.lines[y][1] = {1, text..atext ,colors.white,colors.black}
 	return true
 	else
 	return false
